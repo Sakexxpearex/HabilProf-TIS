@@ -24,4 +24,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// NUEVA RUTA PARA EL LISTADO
+Route::get('/habilitacion/listado', function () {
+    // Renderiza el componente Listado.vue que acabamos de crear
+    return Inertia::render('Habilitacion/Listado'); 
+})->name('habilitacion.listado'); 
+
+
+
 require __DIR__.'/auth.php';
