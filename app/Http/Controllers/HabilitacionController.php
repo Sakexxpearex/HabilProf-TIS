@@ -2,62 +2,136 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use App\Models\Habilitacion;
-use App\Models\User; // Usamos el modelo User para las relaciones
+use Illuminate\Support\Facades\DB;
 
 class HabilitacionController extends Controller
 {
-    /**
-     * Recibe y guarda los datos de la Habilitación, validando según la modalidad.
-     */
     public function store(Request $request)
     {
-        // 1. Reglas de Validación Comunes
-        $rules = [
-            'modalidad' => 'required|in:PrIng,PrInv,PrTut', // Debe ser uno de estos tres
-            'alumno_id' => 'required|exists:users,id', // Debe existir en la tabla 'users'
-            'profesor_dinf_id' => 'required|exists:users,id',
-            'semestre_inicio' => 'required|string|max:10',
-            // La nota y fecha de nota no se ingresan en este paso (se actualizan después)
-        ];
+        // 1️⃣ Validación (semestre_inicio usa 'in' y profesor_tutor usa 'integer')
+        $validated = $request->validate([
+            'rut_alumno' => 'required|integer', 
+            'semestre_inicio_año' => 'required|integer|min:2000|max:2100',
+            // ✅ CORRECCIÓN: Usando 'in' para evitar errores de regex.
+            'semestre_inicio' => 'required|string|in:S1,S2', 
+            'descripcion' => 'nullable|string',
+            'tipo' => 'required|string|in:ingenieria,investigacion,practica',
+            
+            // Validaciones Condicionales
+            'titulo' => 'nullable|string|max:255',
+            'profesor_guia' => 'nullable|integer',
+            'profesor_comision' => 'nullable|integer',
+            'profesor_coguia' => 'nullable|integer',
+            // ✅ CORRECCIÓN: Consistencia de tipo de dato
+            'profesor_tutor' => 'nullable|integer', 
+            'nombre_empresa' => 'nullable|string|max:255',
+            'nombre_supervisor' => 'nullable|string|max:255',
+        ]);
 
-        // 2. Reglas Específicas por Modalidad (Validación Dinámica)
-        if (in_array($request->modalidad, ['PrIng', 'PrInv'])) {
-            // Reglas para Proyecto de Ingeniería y Proyecto de Investigación
-            $rules = array_merge($rules, [
-                'titulo' => 'required|string|max:255',
-                'descripcion_proyecto' => 'required|string',
-                'co_guia_nombre' => 'nullable|string|max:255',
-                'comision_profesor_id' => 'required|exists:users,id', // Debe ser un usuario existente
+        // **INICIO DE LA TRANSACCIÓN**
+        DB::beginTransaction();
+        
+        try {
+            // ❌ ELIMINADO: Se eliminan el cálculo manual del ID (Pasos 2, 3 y 4).
+
+            // Validaciones Adicionales
+            if (($validated['tipo'] === 'ingenieria' || $validated['tipo'] === 'investigacion') && (!$request->input('profesor_guia') || !$request->input('profesor_comision') || !$request->input('titulo'))) {
+                DB::rollBack();
+                return response()->json(['errors' => ['proyecto' => ['Faltan campos requeridos para el Proyecto (Guía, Comisión, Título).']]], 422);
+            }
+            if ($validated['tipo'] === 'practica' && (!$request->input('profesor_tutor') || !$request->input('nombre_empresa') || !$request->input('nombre_supervisor'))) {
+                DB::rollBack();
+                return response()->json(['errors' => ['practica' => ['Faltan campos requeridos para la Práctica (Tutor, Empresa, Supervisor).']]], 422);
+            }
+
+            // 5️⃣ Insertar en la tabla habilitacion y RECUPERAR el ID generado por la BD
+            // Usamos insertGetId y le indicamos a Laravel que la PK es 'id_habilitacion'.
+            $nuevoID = DB::table('habilitacion')->insertGetId([
+                // 'id_habilitacion' ya NO se inserta manualmente
+                'rut_alumno' => $validated['rut_alumno'],
+                'semestre_inicio_año' => $validated['semestre_inicio_año'],
+                'semestre_inicio' => $validated['semestre_inicio'],
+                'descripcion' => $validated['descripcion'] ?? null,
+                
+            ], 'id_habilitacion'); // <-- Especificamos la columna PK para PostgreSQL
+
+            // 6️⃣ Insertar según tipo de habilitación, usando el ID generado ($nuevoID)
+            switch ($validated['tipo']) {
+                case 'ingenieria':
+                case 'investigacion':
+                    $table = $validated['tipo'] === 'ingenieria' ? 'proyecto_ingenieria' : 'proyecto_investigacion';
+                    
+                    DB::table($table)->insert([
+                        'id_habilitacion' => $nuevoID,
+                        'titulo' => $request->input('titulo'),
+                    ]);
+
+                    // Guía y Comisión
+                    DB::table('supervisa')->insert([
+                        ['rut_profesor' => $request->input('profesor_guia'), 'id_habilitacion' => $nuevoID, 'tipo_profesor' => 'guía'],
+                        ['rut_profesor' => $request->input('profesor_comision'), 'id_habilitacion' => $nuevoID, 'tipo_profesor' => 'comision'],
+                    ]);
+
+                    // Co-guía opcional
+                    if ($request->filled('profesor_coguia')) {
+                        DB::table('supervisa')->insert([
+                            'rut_profesor' => $request->input('profesor_coguia'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'co-guia',
+                        ]);
+                    }
+                    break;
+
+                case 'practica':
+                    DB::table('practica_tutelada')->insert([
+                        'id_habilitacion' => $nuevoID,
+                        'nombre_empresa' => $request->input('nombre_empresa'),
+                        'nombre_supervisor' => $request->input('nombre_supervisor'),
+                    ]);
+
+                    DB::table('supervisa')->insert([
+                        'rut_profesor' => $request->input('profesor_tutor'),
+                        'id_habilitacion' => $nuevoID,
+                        'tipo_profesor' => 'tutor',
+                    ]);
+                    break;
+            }
+
+            // Confirmar todas las inserciones
+            DB::commit(); 
+
+            // 7️⃣ Devolver respuesta con ID generado
+            return response()->json([
+                'message' => 'Habilitación creada con éxito',
+                'id_habilitacion' => str_pad($nuevoID, 6, '0', STR_PAD_LEFT)
             ]);
-        } elseif ($request->modalidad === 'PrTut') {
-            // Reglas para Práctica Tutelada
-            $rules = array_merge($rules, [
-                'empresa_nombre' => 'required|string|max:255',
-                'supervisor_empresa' => 'required|string|max:255',
-                'descripcion_practica' => 'required|string',
-            ]);
+
+        } catch (\Exception $e) {
+            // Deshacer todas las inserciones si algo falló
+            DB::rollBack(); 
+
+            // Devolver error de base de datos detallado
+            return response()->json([
+                'message' => 'Error de base de datos al guardar la habilitación. La transacción fue revertida.',
+                'error_detail' => $e->getMessage() 
+            ], 500);
+        }
+    }
+    
+    // NOTA: La función getNextId se mantiene sin cambios, pero ya no es crucial.
+    public function getNextId()
+    {
+        $ultimoID = DB::table('habilitacion')->max('id_habilitacion');
+        $nuevoID = $ultimoID ? $ultimoID + 1 : 1;
+
+        if ($nuevoID > 999999) {
+            return response()->json(['error' => 'Límite máximo de ID alcanzado'], 400);
         }
 
-        // 3. Ejecutar la Validación
-        $datosValidados = $request->validate($rules);
-
-        // 4. Crear la Habilitación en la Base de Datos
-        // Laravel automáticamente solo intenta guardar los campos que existen en la tabla.
-        $habilitacion = Habilitacion::create($datosValidados);
-
-        // 5. Respuesta a Vue (JSON con el nuevo registro)
-        return response()->json($habilitacion, 201); // 201 = Creado exitosamente
-    }
-
-    // [Auxiliar para el Listado]
-    public function index()
-    {
-        // Esto se usa para el listado, devolviendo todas las habilitaciones.
-        return Habilitacion::with(['alumno', 'profesorDinf', 'comisionProfesor'])
-                           ->latest()
-                           ->get();
+        return response()->json([
+            'next_id' => str_pad($nuevoID, 6, '0', STR_PAD_LEFT)
+        ]);
     }
 }

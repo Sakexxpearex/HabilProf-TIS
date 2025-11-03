@@ -30,6 +30,14 @@ Route::get('/habilitacion/listado', function () {
     return Inertia::render('Habilitacion/Listado'); 
 })->name('habilitacion.listado'); 
 
+Route::get('/habilitacion/ingreso', function () {
+    // 
+    return Inertia::render('Habilitacion/Ingreso'); 
+})->name('habilitacion.ingreso'); 
 
+Route::get('/habilitacion/modificar', function () {
+    // 
+    return Inertia::render('Habilitacion/Modificar_Eliminar'); 
+})->name('habilitacion.modificar'); 
 
 require __DIR__.'/auth.php';

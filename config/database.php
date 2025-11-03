@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -92,6 +92,21 @@ return [
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        'pgsql_source' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_SOURCE_URL'),
+            'host' => env('DB_SOURCE_HOST', '127.0.0.1'),
+            'port' => env('DB_SOURCE_PORT', '5432'),
+            'database' => env('DB_SOURCE_DATABASE', 'forge'),
+            'username' => env('DB_SOURCE_USERNAME', 'forge'),
+            'password' => env('DB_SOURCE_PASSWORD', ''),
+            'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
