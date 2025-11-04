@@ -13,3 +13,4 @@ Route::get('/users/list', [UserSyncController::class, 'index'])->name('users.lis
 Route::post('/habilitaciones', [HabilitacionController::class, 'store'])->name('habilitaciones.store');
 Route::get('/habilitaciones', [HabilitacionController::class, 'index'])->name('habilitaciones.index');
 Route::get('/habilitaciones/next-id', [HabilitacionController::class, 'getNextId']);
+Route::get('/profesores', [HabilitacionController::class, 'obtenerProfesores']);

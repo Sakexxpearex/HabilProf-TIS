@@ -6,20 +6,16 @@ import { Head } from '@inertiajs/vue3';
 // --- ESTADOS REACTIVOS ---
 const form = reactive({
     id_habilitacion: '',
-    modalidad: 'PrIng', // Valor inicial por defecto
+    modalidad: 'PrIng',
     alumno_id: '',
     alumno_nombre: '',
     profesor_dinf_id: '',
     profesor_tutor_id: '',
     comision_profesor_id: '',
-    co_guia_id: '',            // ahora es id del profesor co-guía (opcional)
+    co_guia_id: '',
     semestre_inicio: '',
-    
-    // Campos proyecto
     titulo: '',
     descripcion_proyecto: '',
-
-    // Campos práctica
     empresa_nombre: '',
     supervisor_empresa: '',
     descripcion_practica: '',
@@ -27,193 +23,157 @@ const form = reactive({
 
 const showSuccess = ref(false);
 const errorMessage = ref('');
-const alumnos = ref([]);      // lista de alumnos desde API
-const profesores = ref([]);   // lista de profesores desde API
+const alumnos = ref([]);
+const profesores = ref([]);
 
-// Computeds para mostrar secciones
+// --- FILTROS ---
+const profesoresDINF = computed(() =>
+    profesores.value.filter(p => (p.departamento || '').toUpperCase().trim() === 'DINF')
+);
+
+const profesoresCoGuia = computed(() => profesores.value);
+
+// Computeds de tipo de modalidad
 const isProyecto = computed(() => ['PrIng', 'PrInv'].includes(form.modalidad));
 const isPractica = computed(() => form.modalidad === 'PrTut');
 
 // --- FUNCIONES ---
-// Cargar alumnos y profesores (suponiendo que el endpoint devuelva { alumnos: [...], profesores: [...] })
 const fetchUsers = async () => {
     try {
-        const res = await axios.get('/api/users/list');
-        // Si tu backend devuelve un array mezclado en lugar de {alumnos,profesores},
-        // ver nota abajo para ajustar.
-        if (res.data.alumnos && res.data.profesores) {
-            alumnos.value = res.data.alumnos;
-            profesores.value = res.data.profesores;
-        } else {
-            // fallback: si backend devuelve lista mezclada, detectar por esquema y separar por tablas
-            // asumimos que cada objeto tiene { id, name, type } OR id único de tabla
-            const data = Array.isArray(res.data) ? res.data : [];
-            // Si tu backend devolvía { id, name } sin type, preferible cambiar backend.
-            // Intento separar por heurística: si ya existe la tabla 'alumno' con esos ids, backend debe devolver types.
-            alumnos.value = data.filter(x => x.type === 'alumno' || x.role === 'alumno');
-            profesores.value = data.filter(x => x.type === 'profesor' || x.role === 'profesor');
-
-            // Si aún vacío, como última opción tratamos todo como alumnos (no ideal)
-            if (alumnos.value.length === 0 && profesores.value.length === 0) {
-                // asumimos que la respuesta era { alumnos: [...], profesores: [...] } but parsing failed
-                // dejar arrays vacíos para que no rompa la UI
-                alumnos.value = [];
-                profesores.value = [];
-            }
+        //Cargar alumnos y profesores básicos desde la BD
+        const usersRes = await axios.get('/api/users/list');
+        if (usersRes.data.alumnos && usersRes.data.profesores) {
+            alumnos.value = usersRes.data.alumnos;
+            profesores.value = usersRes.data.profesores;
         }
+
+        //Luego, sobreescribir los profesores con los del endpoint /api/profesores
+        //(que incluyen los externos y DINF)
+        const profRes = await axios.get('/api/profesores');
+        console.log('Respuesta completa de /api/profesores:', profRes.data);
+        profesores.value = profRes.data.todos || profesores.value;
+
+        console.log('Profesores finales cargados:', profesores.value);
     } catch (err) {
         console.error('Error fetchUsers', err);
-        errorMessage.value = 'Error al cargar alumnos y profesores: ' + (err.response?.data?.message || err.message);
-        setTimeout(() => errorMessage.value = '', 5000);
+        errorMessage.value =
+            'Error al cargar alumnos y profesores: ' +
+            (err.response?.data?.message || err.message);
+        setTimeout(() => (errorMessage.value = ''), 5000);
     }
 };
 
-// ❌ fetchNextId: ELIMINADA. El ID ahora lo genera la BD.
 
-
-// cuando seleccionas RUT alumno completa nombre (seguro y simple)
+// Seleccionar alumno
 const onAlumnoSelect = () => {
-    // Si tus IDs en Vue son números, asegúrate de comparar números:
     const sel = alumnos.value.find(a => a.id == form.alumno_id);
     form.alumno_nombre = sel ? sel.name : '';
 };
 
-// reset minimal del form (sin tocar semestre si quieres mantenerlo)
+// Reset
 const resetForm = () => {
-    form.modalidad = 'PrIng';
-    form.alumno_id = '';
-    form.alumno_nombre = '';
-    form.profesor_dinf_id = '';
-    form.profesor_tutor_id = '';
-    form.comision_profesor_id = '';
-    form.co_guia_id = '';
-    form.semestre_inicio = '';
-    form.titulo = '';
-    form.descripcion_proyecto = '';
-    form.empresa_nombre = '';
-    form.supervisor_empresa = '';
-    form.descripcion_practica = '';
-    form.id_habilitacion = ''; // Limpiar el ID
+    Object.assign(form, {
+        modalidad: 'PrIng',
+        alumno_id: '',
+        alumno_nombre: '',
+        profesor_dinf_id: '',
+        profesor_tutor_id: '',
+        comision_profesor_id: '',
+        co_guia_id: '',
+        semestre_inicio: '',
+        titulo: '',
+        descripcion_proyecto: '',
+        empresa_nombre: '',
+        supervisor_empresa: '',
+        descripcion_practica: '',
+        id_habilitacion: '',
+    });
 };
 
-// Build payload y enviar (mapeo explícito)
+//
 const submit = async () => {
     showSuccess.value = false;
     errorMessage.value = '';
 
-    // Validaciones simples en frontend (puedes ampliar)
-    if (!form.alumno_id) {
-        errorMessage.value = 'Seleccione un alumno.';
-        return;
-    }
-    if (!form.semestre_inicio) {
-        errorMessage.value = 'Ingrese semestre de inicio.';
-        return;
-    }
-    // si es proyecto, validar guía y comisión
+    if (!form.alumno_id) return (errorMessage.value = 'Seleccione un alumno.');
+    if (!form.semestre_inicio) return (errorMessage.value = 'Ingrese semestre de inicio.');
+
     if (isProyecto.value && (!form.profesor_dinf_id || !form.comision_profesor_id || !form.titulo)) {
-        errorMessage.value = 'Complete profesor guía, profesor comisión y título del proyecto.';
-        return;
+        return (errorMessage.value = 'Complete profesor guía, profesor comisión y título del proyecto.');
     }
-    // si es práctica, validar tutor y empresa y supervisor
+
     if (isPractica.value && (!form.profesor_tutor_id || !form.empresa_nombre || !form.supervisor_empresa)) {
-        errorMessage.value = 'Complete profesor tutor, nombre de empresa y supervisor.';
-        return;
+        return (errorMessage.value = 'Complete profesor tutor, nombre de empresa y supervisor.');
     }
 
     try {
-        // parse semestre: esperamos formato "AAAA-S1" o "2025-S1"
         let yearPart = null;
         let semPart = null;
-        if (form.semestre_inicio && form.semestre_inicio.includes('-')) {
-            [yearPart, semPart] = form.semestre_inicio.split('-');
-        } else {
-            // si usuario ingresó "2025S1" u otro, mandamos raw y backend debería validar
-            yearPart = null;
-            semPart = form.semestre_inicio;
-        }
+        if (form.semestre_inicio.includes('-')) [yearPart, semPart] = form.semestre_inicio.split('-');
 
-        const tipo = form.modalidad === 'PrIng' ? 'ingenieria'
-                        : form.modalidad === 'PrInv' ? 'investigacion'
-                        : 'practica';
+        const tipo =
+            form.modalidad === 'PrIng'
+                ? 'ingenieria'
+                : form.modalidad === 'PrInv'
+                ? 'investigacion'
+                : 'practica';
 
         const payload = {
             tipo,
-            // ✅ CORRECCIÓN: Usar parseInt() para enviar como Number (integer) al backend
             rut_alumno: form.alumno_id ? parseInt(form.alumno_id) : null,
             alumno_nombre: form.alumno_nombre,
             semestre_inicio_año: yearPart ? parseInt(yearPart) : null,
             semestre_inicio: semPart || null,
             descripcion: isProyecto.value ? form.descripcion_proyecto : form.descripcion_practica,
-
-            // ✅ CORRECCIÓN: Usar parseInt() para IDs de profesores
             titulo: form.titulo || null,
             profesor_guia: isProyecto.value && form.profesor_dinf_id ? parseInt(form.profesor_dinf_id) : null,
             profesor_comision: isProyecto.value && form.comision_profesor_id ? parseInt(form.comision_profesor_id) : null,
             profesor_coguia: isProyecto.value && form.co_guia_id ? parseInt(form.co_guia_id) : null,
-
-            // ✅ CORRECCIÓN: Usar parseInt() para profesor tutor
             profesor_tutor: isPractica.value && form.profesor_tutor_id ? parseInt(form.profesor_tutor_id) : null,
             nombre_empresa: isPractica.value ? form.empresa_nombre : null,
             nombre_supervisor: isPractica.value ? form.supervisor_empresa : null,
         };
 
         const res = await axios.post('/api/habilitaciones', payload);
-
-        // Mensaje de éxito mejorado usando el ID devuelto
-        const newId = res.data.id_habilitacion; 
-        errorMessage.value = `✅ ¡Habilitación ${newId} creada exitosamente!`; 
+        const newId = res.data.id_habilitacion;
+        errorMessage.value = `✅ ¡Habilitación ${newId} creada exitosamente!`;
         showSuccess.value = true;
-        
-        // Actualizar el ID en el formulario (solo para visualización)
         form.id_habilitacion = newId;
-
-        // Limpiar el mensaje después de 4 segundos
-        setTimeout(() => { 
-            showSuccess.value = false; 
-            errorMessage.value = ''; 
-            resetForm(); // Resetear el formulario después de mostrar el éxito
-        }, 4000); 
-
+        setTimeout(() => {
+            showSuccess.value = false;
+            errorMessage.value = '';
+            resetForm();
+        }, 4000);
     } catch (err) {
         console.error('Error submit', err);
-        
-        // --- INICIO: Bloque catch ACTUALIZADO ---
         const responseData = err.response?.data;
         const validationErrors = responseData?.errors;
         const backendMessage = responseData?.message || 'Ocurrió un error desconocido al guardar.';
-        const backendDetail = responseData?.error_detail; // <-- Captura el detalle del error de DB
+        const backendDetail = responseData?.error_detail;
 
         if (validationErrors) {
-            // Error de Validación (ej: 422)
             let s = 'Revise los campos:\n';
-            for (const k in validationErrors) {
-                s += `- ${validationErrors[k][0]}\n`;
-            }
+            for (const k in validationErrors) s += `- ${validationErrors[k][0]}\n`;
             errorMessage.value = s;
         } else if (backendDetail) {
-            // Error de Base de Datos/Servidor con detalle (ej: 500)
             errorMessage.value = `${backendMessage}\n\nDetalle de la BD: ${backendDetail}`;
         } else {
-            // Otros errores del servidor
             errorMessage.value = backendMessage;
         }
-        // --- FIN: Bloque catch ACTUALIZADO ---
-
-        window.scrollTo(0,0);
+        window.scrollTo(0, 0);
     }
 };
 
-// onMounted: cargar datos y autosemestre por defecto 
+// onMounted
 onMounted(() => {
     fetchUsers();
-    // ❌ fetchNextId() ELIMINADO de onMounted
     const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth(); // 0..11
+    const currentMonth = new Date().getMonth();
     const semester = currentMonth >= 7 ? 'S2' : 'S1';
     form.semestre_inicio = `${currentYear}-${semester}`;
 });
 </script>
+
 
 <template>
     <Head title="Ingreso Habilitación" />
@@ -233,9 +193,10 @@ onMounted(() => {
                 <div class="col-span-full border-b pb-4 mb-4">
                     <h2 class="text-xl font-semibold text-gray-700">Datos Generales</h2>
                 </div>
+
                 <div>
                     <label for="id_habilitacion" class="block text-sm font-medium text-gray-700">
-                    ID Habilitación
+                        ID Habilitación
                     </label>
                     <input
                         type="text"
@@ -262,7 +223,6 @@ onMounted(() => {
                     <input type="text" id="semestre" v-model="form.semestre_inicio" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="Ej: 2025-S1">
                 </div>
 
-                             
                 <div>
                     <label for="alumno_rut" class="block text-sm font-medium text-gray-700">RUT Alumno(a)</label>
                     <select id="alumno_rut" v-model="form.alumno_id" @change="onAlumnoSelect" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -277,6 +237,7 @@ onMounted(() => {
                 </div>
             </div>
 
+            <!-- 🔹 Sección Proyecto -->
             <div v-if="isProyecto" class="mt-8 border p-4 rounded-lg bg-indigo-50">
                 <h2 class="text-xl font-semibold mb-4 text-indigo-800">Datos del Proyecto (Ingeniería / Investigación)</h2>
                 
@@ -285,7 +246,9 @@ onMounted(() => {
                         <label for="profesor_guia" class="block text-sm font-medium text-gray-700">Profesor Guía DINF</label>
                         <select id="profesor_guia" v-model="form.profesor_dinf_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             <option disabled value="">Seleccione un profesor</option>
-                            <option v-for="p in profesores" :key="p.id" :value="p.id.toString()">{{ p.name }}</option>
+                            <option v-for="p in profesoresDINF" :key="p.rut_profesor" :value="p.rut_profesor.toString()">
+                                {{ p.nombre_profesor }}
+                            </option>
                         </select>
                     </div>
 
@@ -293,7 +256,9 @@ onMounted(() => {
                         <label for="comision_profesor" class="block text-sm font-medium text-gray-700">Profesor Comisión</label>
                         <select id="comision_profesor" v-model="form.comision_profesor_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             <option disabled value="">Seleccione un profesor</option>
-                            <option v-for="p in profesores" :key="p.id" :value="p.id.toString()">{{ p.name }}</option>
+                            <option v-for="p in profesoresDINF" :key="p.rut_profesor" :value="p.rut_profesor.toString()">
+                                {{ p.nombre_profesor }}
+                            </option>
                         </select>
                     </div>
 
@@ -301,7 +266,9 @@ onMounted(() => {
                         <label for="co_guia" class="block text-sm font-medium text-gray-700">Co-Guía (Opcional)</label>
                         <select id="co_guia" v-model="form.co_guia_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             <option value="">Ninguno</option>
-                            <option v-for="p in profesores" :key="p.id" :value="p.id.toString()">{{ p.name }}</option>
+                            <option v-for="p in profesoresCoGuia" :key="p.rut_profesor" :value="p.rut_profesor.toString()">
+                                {{ p.nombre_profesor }}
+                            </option>
                         </select>
                     </div>
 
@@ -317,6 +284,7 @@ onMounted(() => {
                 </div>
             </div>
 
+            <!-- 🔹 Sección Práctica -->
             <div v-if="isPractica" class="mt-8 border p-4 rounded-lg bg-yellow-50">
                 <h2 class="text-xl font-semibold mb-4 text-yellow-800">Datos de la Práctica Tutelada</h2>
                 
@@ -325,7 +293,9 @@ onMounted(() => {
                         <label for="profesor_tutor" class="block text-sm font-medium text-gray-700">Profesor Tutor DINF</label>
                         <select id="profesor_tutor" v-model="form.profesor_tutor_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             <option disabled value="">Seleccione un profesor</option>
-                            <option v-for="p in profesores" :key="p.id" :value="p.id.toString()">{{ p.name }}</option>
+                            <option v-for="p in profesoresDINF" :key="p.rut_profesor" :value="p.rut_profesor.toString()">
+                                {{ p.nombre_profesor }}
+                            </option>
                         </select>
                     </div>
 

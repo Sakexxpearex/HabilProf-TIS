@@ -30,6 +30,18 @@ class HabilitacionController extends Controller
             'nombre_supervisor' => 'nullable|string|max:255',
         ]);
 
+        $existe = DB::table('habilitacion')
+            ->where('rut_alumno', $validated['rut_alumno'])
+            ->exists();
+
+        if ($existe) {
+            return response()->json([
+                'errors' => [
+                    'rut_alumno' => ['El alumno ya posee una habilitación registrada y no puede tener más de una.']
+                ]
+            ], 422);
+        }
+
         // **INICIO DE LA TRANSACCIÓN**
         DB::beginTransaction();
         
@@ -134,4 +146,25 @@ class HabilitacionController extends Controller
             'next_id' => str_pad($nuevoID, 6, '0', STR_PAD_LEFT)
         ]);
     }
+    public function obtenerProfesores()
+    {
+    // Profesores del DINF
+    $profesoresDinf = DB::table('profesor')
+        ->whereRaw("LOWER(TRIM(departamento)) = 'dinf'")
+        ->select('rut_profesor', 'nombre_profesor', 'departamento')
+        ->orderBy('nombre_profesor')
+        ->get();
+
+    // Todos los profesores (para co-guía)
+    $profesoresTodos = DB::table('profesor')
+        ->select('rut_profesor', 'nombre_profesor', 'departamento')
+        ->orderBy('nombre_profesor')
+        ->get();
+
+    return response()->json([
+        'dinf' => $profesoresDinf,
+        'todos' => $profesoresTodos,
+    ]);
+    }
 }
+
