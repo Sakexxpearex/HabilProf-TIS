@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AlumnoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserSyncController;
@@ -14,3 +15,4 @@ Route::post('/habilitaciones', [HabilitacionController::class, 'store'])->name('
 Route::get('/habilitaciones', [HabilitacionController::class, 'index'])->name('habilitaciones.index');
 Route::get('/habilitaciones/next-id', [HabilitacionController::class, 'getNextId']);
 Route::get('/profesores', [HabilitacionController::class, 'obtenerProfesores']);
+Route::get('/alumnos/{rut}', [AlumnoController::class, 'buscarPorRut']);

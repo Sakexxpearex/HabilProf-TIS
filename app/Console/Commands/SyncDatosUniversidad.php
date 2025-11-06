@@ -12,7 +12,7 @@ class SyncDatosUniversidad extends Command
 
     public function handle()
     {
-        $this->info('▶️ Sincronización de Universidad iniciada...');
+        $this->info('Sincronización de Universidad iniciada...');
 
         try {
             // === 1. Alumnos ===
@@ -27,7 +27,7 @@ class SyncDatosUniversidad extends Command
                     ]
                 );
             }
-            $this->info('✅ Alumnos sincronizados.');
+            
 
             // === 2. Profesores ===
             $profesores = DB::connection('pgsql_source')->table('sistema_profesores')->get();
@@ -42,7 +42,6 @@ class SyncDatosUniversidad extends Command
                     ]
                 );
             }
-            $this->info('✅ Profesores sincronizados.');
 
             // === 3. Notas ===
             $notas = DB::connection('pgsql_source')->table('notas_en_linea')->get();
@@ -62,12 +61,11 @@ class SyncDatosUniversidad extends Command
                     );
                 }
             }
-            $this->info('✅ Notas sincronizadas.');
 
-            $this->info('🎉 Sincronización completada con éxito.');
+            $this->info('Carga automática completada correctamente');
         } catch (\Exception $e) {
-            $this->error('🚨 Error en la sincronización: ' . $e->getMessage());
-            $this->error('📍 Línea: ' . $e->getLine());
+            $this->error('Error en carga automática' . $e->getMessage());
+            $this->error('' . $e->getLine());
         }
     }
 }

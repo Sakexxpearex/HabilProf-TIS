@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue';
+import { reactive, ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
 
@@ -10,9 +10,13 @@ const form = reactive({
     alumno_id: '',
     alumno_nombre: '',
     profesor_dinf_id: '',
-    profesor_tutor_id: '',
+    profesor_dinf_rut: '', // 🔹 Nuevo campo: RUT del profesor guía
     comision_profesor_id: '',
+    comision_profesor_rut: '', // 🔹 Nuevo campo: RUT del profesor comisión
     co_guia_id: '',
+    co_guia_rut: '', // 🔹 Nuevo campo: RUT del co-guía
+    profesor_tutor_id: '',
+    profesor_tutor_rut: '', // 🔹 Nuevo campo: RUT del tutor
     semestre_inicio: '',
     titulo: '',
     descripcion_proyecto: '',
@@ -25,8 +29,9 @@ const showSuccess = ref(false);
 const errorMessage = ref('');
 const alumnos = ref([]);
 const profesores = ref([]);
+const errorAlumno = ref('');
 
-// --- FILTROS ---
+// FILTROS
 const profesoresDINF = computed(() =>
     profesores.value.filter(p => (p.departamento || '').toUpperCase().trim() === 'DINF')
 );
@@ -40,15 +45,12 @@ const isPractica = computed(() => form.modalidad === 'PrTut');
 // --- FUNCIONES ---
 const fetchUsers = async () => {
     try {
-        //Cargar alumnos y profesores básicos desde la BD
         const usersRes = await axios.get('/api/users/list');
         if (usersRes.data.alumnos && usersRes.data.profesores) {
             alumnos.value = usersRes.data.alumnos;
             profesores.value = usersRes.data.profesores;
         }
 
-        //Luego, sobreescribir los profesores con los del endpoint /api/profesores
-        //(que incluyen los externos y DINF)
         const profRes = await axios.get('/api/profesores');
         console.log('Respuesta completa de /api/profesores:', profRes.data);
         profesores.value = profRes.data.todos || profesores.value;
@@ -63,11 +65,46 @@ const fetchUsers = async () => {
     }
 };
 
+// 🔹 WATCHERS para llenar automáticamente los RUT según selección
+watch(() => form.profesor_dinf_id, (nuevo) => {
+    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    form.profesor_dinf_rut = prof ? prof.rut_profesor : '';
+});
+
+watch(() => form.comision_profesor_id, (nuevo) => {
+    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    form.comision_profesor_rut = prof ? prof.rut_profesor : '';
+});
+
+watch(() => form.co_guia_id, (nuevo) => {
+    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    form.co_guia_rut = prof ? prof.rut_profesor : '';
+});
+
+watch(() => form.profesor_tutor_id, (nuevo) => {
+    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    form.profesor_tutor_rut = prof ? prof.rut_profesor : '';
+});
+
 
 // Seleccionar alumno
-const onAlumnoSelect = () => {
-    const sel = alumnos.value.find(a => a.id == form.alumno_id);
-    form.alumno_nombre = sel ? sel.name : '';
+const buscarAlumnoPorRut = async () => {
+    errorAlumno.value = '';
+    form.alumno_nombre = '';
+
+    if (!form.alumno_id) return;
+
+    try {
+        const res = await axios.get(`/api/alumnos/${form.alumno_id}`);
+        if (res.data && res.data.name) {
+            form.alumno_nombre = res.data.name;
+        } else {
+            errorAlumno.value = '⚠️ No se encontró un alumno con ese RUT.';
+        }
+    } catch (err) {
+        console.error('Error al buscar alumno:', err);
+        errorAlumno.value = '⚠️ Error al consultar el alumno o no existe.';
+    }
 };
 
 // Reset
@@ -77,9 +114,13 @@ const resetForm = () => {
         alumno_id: '',
         alumno_nombre: '',
         profesor_dinf_id: '',
+        profesor_dinf_rut: '',
         profesor_tutor_id: '',
+        profesor_tutor_rut: '',
         comision_profesor_id: '',
+        comision_profesor_rut: '',
         co_guia_id: '',
+        co_guia_rut: '',
         semestre_inicio: '',
         titulo: '',
         descripcion_proyecto: '',
@@ -90,7 +131,13 @@ const resetForm = () => {
     });
 };
 
-//
+// --- VALIDACIONES (sin cambios) ---
+const validarNombreEmpresa = (nombre) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,50}$/.test(nombre);
+const validarTitulo = (titulo) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,25}$/.test(titulo);
+const validarDescripcion = (d) => d.length <= 350 && /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9\s.,;:¡!¿?"'()\-_/&%$#@]*$/.test(d);
+const validarNombreSupervisor = (n) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,50}$/.test(n);
+
+// --- SUBMIT (sin cambios) ---
 const submit = async () => {
     showSuccess.value = false;
     errorMessage.value = '';
@@ -98,28 +145,40 @@ const submit = async () => {
     if (!form.alumno_id) return (errorMessage.value = 'Seleccione un alumno.');
     if (!form.semestre_inicio) return (errorMessage.value = 'Ingrese semestre de inicio.');
 
-    if (isProyecto.value && (!form.profesor_dinf_id || !form.comision_profesor_id || !form.titulo)) {
-        return (errorMessage.value = 'Complete profesor guía, profesor comisión y título del proyecto.');
+    const semestreRegex = /^\d{4}-(1|2)$/;
+    if (!semestreRegex.test(form.semestre_inicio)) {
+        return (errorMessage.value = 'Revise los campos: Semestre de Inicio. \n Formato inválido. Use AAAA-1 o AAAA-2.');
     }
 
-    if (isPractica.value && (!form.profesor_tutor_id || !form.empresa_nombre || !form.supervisor_empresa)) {
-        return (errorMessage.value = 'Complete profesor tutor, nombre de empresa y supervisor.');
-    }
+    if (isPractica.value && !validarNombreEmpresa(form.empresa_nombre))
+        return (errorMessage.value = 'Nombre Empresa inválido.');
+    if (isProyecto.value && !validarTitulo(form.titulo))
+        return (errorMessage.value = 'Título inválido.');
+    if (isProyecto.value && !validarDescripcion(form.descripcion_proyecto))
+        return (errorMessage.value = 'Descripción inválida.');
+    if (isPractica.value && !validarDescripcion(form.descripcion_practica))
+        return (errorMessage.value = 'Descripción inválida.');
+    if (isPractica.value && !validarNombreSupervisor(form.supervisor_empresa))
+        return (errorMessage.value = 'Nombre Supervisor inválido.');
+
+    if (isProyecto.value && (!form.profesor_dinf_id || !form.comision_profesor_id || !form.titulo))
+        return (errorMessage.value = 'Complete guía, comisión y título.');
+    if (isPractica.value && (!form.profesor_tutor_id || !form.empresa_nombre || !form.supervisor_empresa))
+        return (errorMessage.value = 'Complete tutor, empresa y supervisor.');
 
     try {
         let yearPart = null;
         let semPart = null;
         if (form.semestre_inicio.includes('-')) [yearPart, semPart] = form.semestre_inicio.split('-');
 
-        const tipo =
-            form.modalidad === 'PrIng'
-                ? 'ingenieria'
-                : form.modalidad === 'PrInv'
-                ? 'investigacion'
-                : 'practica';
+        const tipoHabilitacionMap = {
+            PrIng: 'Proyecto de Ingeniería',
+            PrInv: 'Proyecto de Investigación',
+            PrTut: 'Práctica Tutelada'
+        };
 
         const payload = {
-            tipo,
+            tipo_habilitacion: tipoHabilitacionMap[form.modalidad],
             rut_alumno: form.alumno_id ? parseInt(form.alumno_id) : null,
             alumno_nombre: form.alumno_nombre,
             semestre_inicio_año: yearPart ? parseInt(yearPart) : null,
@@ -148,7 +207,7 @@ const submit = async () => {
         console.error('Error submit', err);
         const responseData = err.response?.data;
         const validationErrors = responseData?.errors;
-        const backendMessage = responseData?.message || 'Ocurrió un error desconocido al guardar.';
+        const backendMessage = responseData?.message || 'Ocurrió un error al guardar.';
         const backendDetail = responseData?.error_detail;
 
         if (validationErrors) {
@@ -156,7 +215,7 @@ const submit = async () => {
             for (const k in validationErrors) s += `- ${validationErrors[k][0]}\n`;
             errorMessage.value = s;
         } else if (backendDetail) {
-            errorMessage.value = `${backendMessage}\n\nDetalle de la BD: ${backendDetail}`;
+            errorMessage.value = `${backendMessage}\n\nDetalle: ${backendDetail}`;
         } else {
             errorMessage.value = backendMessage;
         }
@@ -169,7 +228,7 @@ onMounted(() => {
     fetchUsers();
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
-    const semester = currentMonth >= 7 ? 'S2' : 'S1';
+    const semester = currentMonth >= 7 ? 2 : 1;
     form.semestre_inicio = `${currentYear}-${semester}`;
 });
 </script>
@@ -225,10 +284,16 @@ onMounted(() => {
 
                 <div>
                     <label for="alumno_rut" class="block text-sm font-medium text-gray-700">RUT Alumno(a)</label>
-                    <select id="alumno_rut" v-model="form.alumno_id" @change="onAlumnoSelect" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                        <option disabled value="">Seleccione un RUT</option>
-                        <option v-for="a in alumnos" :key="a.id" :value="a.id.toString()">{{ a.id }}</option>
-                    </select>
+                    <input
+                        type="text"
+                        id="alumno_rut"
+                        v-model="form.alumno_id"
+                        @blur="buscarAlumnoPorRut"
+                        required
+                        placeholder="Ej: 12345678"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    />
+                    <p v-if="errorAlumno" class="text-red-600 text-sm mt-1">{{ errorAlumno }}</p>
                 </div>
 
                 <div>
@@ -242,6 +307,7 @@ onMounted(() => {
                 <h2 class="text-xl font-semibold mb-4 text-indigo-800">Datos del Proyecto (Ingeniería / Investigación)</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Profesor Guía -->
                     <div>
                         <label for="profesor_guia" class="block text-sm font-medium text-gray-700">Profesor Guía DINF</label>
                         <select id="profesor_guia" v-model="form.profesor_dinf_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -250,8 +316,11 @@ onMounted(() => {
                                 {{ p.nombre_profesor }}
                             </option>
                         </select>
+                        <input type="text" v-model="form.profesor_dinf_rut" readonly placeholder="RUT profesor guía"
+                            class="mt-2 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
                     </div>
 
+                    <!-- Profesor Comisión -->
                     <div>
                         <label for="comision_profesor" class="block text-sm font-medium text-gray-700">Profesor Comisión</label>
                         <select id="comision_profesor" v-model="form.comision_profesor_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -260,8 +329,11 @@ onMounted(() => {
                                 {{ p.nombre_profesor }}
                             </option>
                         </select>
+                        <input type="text" v-model="form.comision_profesor_rut" readonly placeholder="RUT profesor comisión"
+                            class="mt-2 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
                     </div>
 
+                    <!-- Co-Guía -->
                     <div>
                         <label for="co_guia" class="block text-sm font-medium text-gray-700">Co-Guía (Opcional)</label>
                         <select id="co_guia" v-model="form.co_guia_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -270,6 +342,8 @@ onMounted(() => {
                                 {{ p.nombre_profesor }}
                             </option>
                         </select>
+                        <input type="text" v-model="form.co_guia_rut" readonly placeholder="RUT co-guía"
+                            class="mt-2 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
                     </div>
 
                     <div class="col-span-full">
@@ -289,6 +363,7 @@ onMounted(() => {
                 <h2 class="text-xl font-semibold mb-4 text-yellow-800">Datos de la Práctica Tutelada</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Profesor Tutor -->
                     <div>
                         <label for="profesor_tutor" class="block text-sm font-medium text-gray-700">Profesor Tutor DINF</label>
                         <select id="profesor_tutor" v-model="form.profesor_tutor_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -297,6 +372,8 @@ onMounted(() => {
                                 {{ p.nombre_profesor }}
                             </option>
                         </select>
+                        <input type="text" v-model="form.profesor_tutor_rut" readonly placeholder="RUT profesor tutor"
+                            class="mt-2 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
                     </div>
 
                     <div>

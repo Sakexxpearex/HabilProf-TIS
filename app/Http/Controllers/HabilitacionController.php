@@ -10,26 +10,36 @@ class HabilitacionController extends Controller
 {
     public function store(Request $request)
     {
-        // 1️⃣ Validación (semestre_inicio usa 'in' y profesor_tutor usa 'integer')
+        // Validación
         $validated = $request->validate([
             'rut_alumno' => 'required|integer', 
             'semestre_inicio_año' => 'required|integer|min:2000|max:2100',
-            // ✅ CORRECCIÓN: Usando 'in' para evitar errores de regex.
-            'semestre_inicio' => 'required|string|in:S1,S2', 
+            'semestre_inicio' => 'required|integer|min:1|max:2', 
             'descripcion' => 'nullable|string',
-            'tipo' => 'required|string|in:ingenieria,investigacion,practica',
-            
-            // Validaciones Condicionales
+            'tipo_habilitacion' => 'required|string|in:Proyecto de Ingeniería,Proyecto de Investigación,Práctica Tutelada',
             'titulo' => 'nullable|string|max:255',
             'profesor_guia' => 'nullable|integer',
             'profesor_comision' => 'nullable|integer',
             'profesor_coguia' => 'nullable|integer',
-            // ✅ CORRECCIÓN: Consistencia de tipo de dato
             'profesor_tutor' => 'nullable|integer', 
             'nombre_empresa' => 'nullable|string|max:255',
             'nombre_supervisor' => 'nullable|string|max:255',
         ]);
 
+        // Verifica existencia de alumno
+        $alumnoExiste = DB::table('alumno')
+            ->where('rut_alumno', $validated['rut_alumno'])
+            ->exists();
+
+        if (!$alumnoExiste) {
+            return response()->json([
+                'errors' => [
+                    'rut_alumno' => ['El RUT ingresado no existe en la base de datos de alumnos.']
+                ]
+            ], 422);
+        }
+
+        // Verifica si ya tiene habilitación
         $existe = DB::table('habilitacion')
             ->where('rut_alumno', $validated['rut_alumno'])
             ->exists();
@@ -42,51 +52,58 @@ class HabilitacionController extends Controller
             ], 422);
         }
 
-        // **INICIO DE LA TRANSACCIÓN**
+        // Transacción
         DB::beginTransaction();
         
         try {
-            // ❌ ELIMINADO: Se eliminan el cálculo manual del ID (Pasos 2, 3 y 4).
-
-            // Validaciones Adicionales
-            if (($validated['tipo'] === 'ingenieria' || $validated['tipo'] === 'investigacion') && (!$request->input('profesor_guia') || !$request->input('profesor_comision') || !$request->input('titulo'))) {
+            // Validaciones adicionales
+            if (
+                ($validated['tipo_habilitacion'] === 'Proyecto de Ingeniería' ||
+                 $validated['tipo_habilitacion'] === 'Proyecto de Investigación') &&
+                (!$request->input('profesor_guia') || !$request->input('profesor_comision') || !$request->input('titulo'))
+            ) {
                 DB::rollBack();
                 return response()->json(['errors' => ['proyecto' => ['Faltan campos requeridos para el Proyecto (Guía, Comisión, Título).']]], 422);
             }
-            if ($validated['tipo'] === 'practica' && (!$request->input('profesor_tutor') || !$request->input('nombre_empresa') || !$request->input('nombre_supervisor'))) {
+
+            if (
+                $validated['tipo_habilitacion'] === 'Práctica Tutelada' &&
+                (!$request->input('profesor_tutor') || !$request->input('nombre_empresa') || !$request->input('nombre_supervisor'))
+            ) {
                 DB::rollBack();
                 return response()->json(['errors' => ['practica' => ['Faltan campos requeridos para la Práctica (Tutor, Empresa, Supervisor).']]], 422);
             }
 
-            // 5️⃣ Insertar en la tabla habilitacion y RECUPERAR el ID generado por la BD
-            // Usamos insertGetId y le indicamos a Laravel que la PK es 'id_habilitacion'.
+            // Inserta en habilitación
             $nuevoID = DB::table('habilitacion')->insertGetId([
-                // 'id_habilitacion' ya NO se inserta manualmente
                 'rut_alumno' => $validated['rut_alumno'],
                 'semestre_inicio_año' => $validated['semestre_inicio_año'],
                 'semestre_inicio' => $validated['semestre_inicio'],
                 'descripcion' => $validated['descripcion'] ?? null,
-                
-            ], 'id_habilitacion'); // <-- Especificamos la columna PK para PostgreSQL
+                'tipo_habilitacion' => $request->input('tipo_habilitacion'),
+            ], 'id_habilitacion');
 
-            // 6️⃣ Insertar según tipo de habilitación, usando el ID generado ($nuevoID)
-            switch ($validated['tipo']) {
-                case 'ingenieria':
-                case 'investigacion':
-                    $table = $validated['tipo'] === 'ingenieria' ? 'proyecto_ingenieria' : 'proyecto_investigacion';
-                    
-                    DB::table($table)->insert([
+            // Inserciones según tipo
+            switch ($validated['tipo_habilitacion']) {
+                case 'Proyecto de Ingeniería':
+                    DB::table('proyecto_ingenieria')->insert([
                         'id_habilitacion' => $nuevoID,
                         'titulo' => $request->input('titulo'),
                     ]);
 
-                    // Guía y Comisión
                     DB::table('supervisa')->insert([
-                        ['rut_profesor' => $request->input('profesor_guia'), 'id_habilitacion' => $nuevoID, 'tipo_profesor' => 'guía'],
-                        ['rut_profesor' => $request->input('profesor_comision'), 'id_habilitacion' => $nuevoID, 'tipo_profesor' => 'comision'],
+                        [
+                            'rut_profesor' => $request->input('profesor_guia'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'guía'
+                        ],
+                        [
+                            'rut_profesor' => $request->input('profesor_comision'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'comision'
+                        ],
                     ]);
 
-                    // Co-guía opcional
                     if ($request->filled('profesor_coguia')) {
                         DB::table('supervisa')->insert([
                             'rut_profesor' => $request->input('profesor_coguia'),
@@ -96,7 +113,35 @@ class HabilitacionController extends Controller
                     }
                     break;
 
-                case 'practica':
+                case 'Proyecto de Investigación':
+                    DB::table('proyecto_investigacion')->insert([
+                        'id_habilitacion' => $nuevoID,
+                        'titulo' => $request->input('titulo'),
+                    ]);
+
+                    DB::table('supervisa')->insert([
+                        [
+                            'rut_profesor' => $request->input('profesor_guia'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'guía'
+                        ],
+                        [
+                            'rut_profesor' => $request->input('profesor_comision'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'comision'
+                        ],
+                    ]);
+
+                    if ($request->filled('profesor_coguia')) {
+                        DB::table('supervisa')->insert([
+                            'rut_profesor' => $request->input('profesor_coguia'),
+                            'id_habilitacion' => $nuevoID,
+                            'tipo_profesor' => 'co-guia',
+                        ]);
+                    }
+                    break;
+
+                case 'Práctica Tutelada':
                     DB::table('practica_tutelada')->insert([
                         'id_habilitacion' => $nuevoID,
                         'nombre_empresa' => $request->input('nombre_empresa'),
@@ -111,28 +156,23 @@ class HabilitacionController extends Controller
                     break;
             }
 
-            // Confirmar todas las inserciones
-            DB::commit(); 
+            DB::commit();
 
-            // 7️⃣ Devolver respuesta con ID generado
+            // Retorno exitoso
             return response()->json([
                 'message' => 'Habilitación creada con éxito',
                 'id_habilitacion' => str_pad($nuevoID, 6, '0', STR_PAD_LEFT)
             ]);
 
         } catch (\Exception $e) {
-            // Deshacer todas las inserciones si algo falló
-            DB::rollBack(); 
-
-            // Devolver error de base de datos detallado
+            DB::rollBack();
             return response()->json([
                 'message' => 'Error de base de datos al guardar la habilitación. La transacción fue revertida.',
-                'error_detail' => $e->getMessage() 
+                'error_detail' => $e->getMessage()
             ], 500);
         }
     }
-    
-    // NOTA: La función getNextId se mantiene sin cambios, pero ya no es crucial.
+
     public function getNextId()
     {
         $ultimoID = DB::table('habilitacion')->max('id_habilitacion');
@@ -146,25 +186,24 @@ class HabilitacionController extends Controller
             'next_id' => str_pad($nuevoID, 6, '0', STR_PAD_LEFT)
         ]);
     }
+
     public function obtenerProfesores()
     {
-    // Profesores del DINF
-    $profesoresDinf = DB::table('profesor')
-        ->whereRaw("LOWER(TRIM(departamento)) = 'dinf'")
-        ->select('rut_profesor', 'nombre_profesor', 'departamento')
-        ->orderBy('nombre_profesor')
-        ->get();
+        $profesoresDinf = DB::table('profesor')
+            ->whereRaw("LOWER(TRIM(departamento)) = 'dinf'")
+            ->select('rut_profesor', 'nombre_profesor', 'departamento')
+            ->orderBy('nombre_profesor')
+            ->get();
 
-    // Todos los profesores (para co-guía)
-    $profesoresTodos = DB::table('profesor')
-        ->select('rut_profesor', 'nombre_profesor', 'departamento')
-        ->orderBy('nombre_profesor')
-        ->get();
+        $profesoresTodos = DB::table('profesor')
+            ->select('rut_profesor', 'nombre_profesor', 'departamento')
+            ->orderBy('nombre_profesor')
+            ->get();
 
-    return response()->json([
-        'dinf' => $profesoresDinf,
-        'todos' => $profesoresTodos,
-    ]);
+        return response()->json([
+            'dinf' => $profesoresDinf,
+            'todos' => $profesoresTodos,
+        ]);
     }
 }
 
