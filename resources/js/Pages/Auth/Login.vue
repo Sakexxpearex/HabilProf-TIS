@@ -6,95 +6,106 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+  canResetPassword: Boolean,
+  status: String,
 });
 
+const mensaje = ref('');
 const form = useForm({
-    email: '',
-    password: '',
-    remember: false,
+  usuario: '', 
+  password: '',
+  remember: false,
 });
+
+// Expresión regular R8.1 y R8.2
+const validarCampo = (valor) => /^[A-Za-z0-9]{1,20}$/.test(valor);
 
 const submit = () => {
-    form.post(route('login'), {
-        onFinish: () => form.reset('password'),
-    });
+  mensaje.value = '';
+
+  const usuarioTrim = form.usuario.trim();
+  const passwordTrim = form.password.trim();
+
+  if (!usuarioTrim || !passwordTrim) {
+    mensaje.value = 'Debe completar ambos campos';
+    return;
+  }
+
+  if (!validarCampo(usuarioTrim) || !validarCampo(passwordTrim)) {
+    mensaje.value =
+      'Solo se permiten letras y números, sin espacios ni caracteres especiales (máx. 20)';
+    return;
+  }
+
+  form.post(route('login'), {
+    data: {
+      usuario: usuarioTrim,
+      password: passwordTrim,
+      remember: form.remember,
+    },
+    onSuccess: () => (mensaje.value = 'Ingresado exitosamente'),
+    onError: () => (mensaje.value = 'Usuario o contraseña incorrectos'),
+    onFinish: () => form.reset('password'),
+  });
 };
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Log in" />
+  <GuestLayout>
+    <Head title="Login" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-            {{ status }}
-        </div>
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="email" value="Email" />
 
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
+    <div class="min-h-screen flex items-center justify-center bg-gray-100">
+  <div class="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+    <form @submit.prevent="submit">
+      
+      <div>
+        <InputLabel for="usuario" value="Usuario" />
+        <TextInput
+          id="usuario"
+          type="text"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          v-model.trim="form.usuario"
+          required
+        />
+        <InputError class="mt-2" :message="form.errors.usuario" />
+      </div>
 
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
+      <div class="mt-4">
+        <InputLabel for="password" value="Password" />
+        <TextInput
+          id="password"
+          type="password"
+          class="mt-1 block w-full"
+          v-model="form.password"
+          required
+        />
+        <InputError class="mt-2" :message="form.errors.password" />
+      </div>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+      <div class="mt-4 flex items-center">
+        <Checkbox name="remember" v-model:checked="form.remember" />
+        <span class="ms-2 text-sm text-gray-600">Recordarme</span>
+      </div>
 
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
+      <PrimaryButton
+        class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded"
+        :disabled="form.processing"
+      >
+  Ingresar
+</PrimaryButton>
 
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600"
-                        >Remember me</span
-                    >
-                </label>
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    Forgot your password?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Log in
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+      <p v-if="mensaje" class="mt-4 text-sm text-center text-red-600">
+      {{ mensaje }}
+      </p>
+    </form>
+    
+  </div>
+</div>
+    
+  </GuestLayout>
 </template>
