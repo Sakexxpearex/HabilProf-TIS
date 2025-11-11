@@ -10,13 +10,13 @@ const form = reactive({
     alumno_id: '',
     alumno_nombre: '',
     profesor_dinf_id: '',
-    profesor_dinf_rut: '', // 🔹 Nuevo campo: RUT del profesor guía
+    profesor_dinf_rut: '',
     comision_profesor_id: '',
-    comision_profesor_rut: '', // 🔹 Nuevo campo: RUT del profesor comisión
+    comision_profesor_rut: '',
     co_guia_id: '',
-    co_guia_rut: '', // 🔹 Nuevo campo: RUT del co-guía
+    co_guia_rut: '',
     profesor_tutor_id: '',
-    profesor_tutor_rut: '', // 🔹 Nuevo campo: RUT del tutor
+    profesor_tutor_rut: '',
     semestre_inicio: '',
     titulo: '',
     descripcion_proyecto: '',
@@ -99,11 +99,11 @@ const buscarAlumnoPorRut = async () => {
         if (res.data && res.data.name) {
             form.alumno_nombre = res.data.name;
         } else {
-            errorAlumno.value = '⚠️ No se encontró un alumno con ese RUT.';
+            errorAlumno.value = 'No se encontró un alumno con ese RUT.';
         }
     } catch (err) {
         console.error('Error al buscar alumno:', err);
-        errorAlumno.value = '⚠️ Error al consultar el alumno o no existe.';
+        errorAlumno.value = 'Error al consultar el alumno o no existe.';
     }
 };
 
@@ -195,7 +195,7 @@ const submit = async () => {
 
         const res = await axios.post('/api/habilitaciones', payload);
         const newId = res.data.id_habilitacion;
-        errorMessage.value = `✅ ¡Habilitación ${newId} creada exitosamente!`;
+        errorMessage.value = `¡Habilitación ${newId} creada exitosamente!`;
         showSuccess.value = true;
         form.id_habilitacion = newId;
         setTimeout(() => {
