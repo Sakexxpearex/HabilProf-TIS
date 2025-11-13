@@ -20,7 +20,7 @@ const form = useForm({
   remember: false,
 });
 
-// Expresión regular R8.1 y R8.2
+// Validación (R8.1 y R8.2)
 const validarCampo = (valor) => /^[A-Za-z0-9]{1,20}$/.test(valor);
 
 const submit = () => {
@@ -57,55 +57,56 @@ const submit = () => {
   <GuestLayout>
     <Head title="Login" />
 
+    <!-- Fondo rojo burdeos y centrado -->
+    <div class="min-h-screen flex items-center justify-center bg-[#800000]">
+      <!-- Contenedor del formulario -->
+      <div class="w-full max-w-md bg-white/95 p-8 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">
+          Iniciar Sesión
+        </h1>
 
+        <form @submit.prevent="submit">
+          <div>
+            <InputLabel for="usuario" value="Usuario" />
+            <TextInput
+              id="usuario"
+              type="text"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-700 focus:border-red-700"
+              v-model.trim="form.usuario"
+              required
+            />
+            <InputError class="mt-2" :message="form.errors.usuario" />
+          </div>
 
-    <div class="min-h-screen flex items-center justify-center bg-gray-100">
-  <div class="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
-    <form @submit.prevent="submit">
-      
-      <div>
-        <InputLabel for="usuario" value="Usuario" />
-        <TextInput
-          id="usuario"
-          type="text"
-          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          v-model.trim="form.usuario"
-          required
-        />
-        <InputError class="mt-2" :message="form.errors.usuario" />
+          <div class="mt-4">
+            <InputLabel for="password" value="Contraseña" />
+            <TextInput
+              id="password"
+              type="password"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-red-700 focus:border-red-700"
+              v-model="form.password"
+              required
+            />
+            <InputError class="mt-2" :message="form.errors.password" />
+          </div>
+
+          <div class="mt-4 flex items-center">
+            <Checkbox name="remember" v-model:checked="form.remember" />
+            <span class="ms-2 text-sm text-gray-600">Recordarme</span>
+          </div>
+
+          <PrimaryButton
+            class="mt-6 w-full bg-red-700 hover:bg-red-800 text-white font-semibold py-2 px-4 rounded shadow-sm transition"
+            :disabled="form.processing"
+          >
+            Ingresar
+          </PrimaryButton>
+
+          <p v-if="mensaje" class="mt-4 text-sm text-center text-red-600">
+            {{ mensaje }}
+          </p>
+        </form>
       </div>
-
-      <div class="mt-4">
-        <InputLabel for="password" value="Password" />
-        <TextInput
-          id="password"
-          type="password"
-          class="mt-1 block w-full"
-          v-model="form.password"
-          required
-        />
-        <InputError class="mt-2" :message="form.errors.password" />
-      </div>
-
-      <div class="mt-4 flex items-center">
-        <Checkbox name="remember" v-model:checked="form.remember" />
-        <span class="ms-2 text-sm text-gray-600">Recordarme</span>
-      </div>
-
-      <PrimaryButton
-        class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded"
-        :disabled="form.processing"
-      >
-  Ingresar
-</PrimaryButton>
-
-      <p v-if="mensaje" class="mt-4 text-sm text-center text-red-600">
-      {{ mensaje }}
-      </p>
-    </form>
-    
-  </div>
-</div>
-    
+    </div>
   </GuestLayout>
 </template>
