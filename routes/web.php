@@ -16,7 +16,7 @@ Route::get('/', function () {
 
 // Dashboard solo para usuarios autenticados
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    return Inertia::render('Habilitacion/Ingreso');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // Rutas de perfil (ya protegidas)

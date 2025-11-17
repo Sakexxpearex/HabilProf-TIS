@@ -2,6 +2,9 @@
 import { reactive, ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+
+
 
 // --- ESTADOS REACTIVOS ---
 const form = reactive({
@@ -235,6 +238,7 @@ onMounted(() => {
 
 
 <template>
+    <AuthenticatedLayout>
     <Head title="Ingreso Habilitación" />
 
     <div class="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-xl">
@@ -400,4 +404,5 @@ onMounted(() => {
             </div>
         </form>
     </div>
+    </AuthenticatedLayout>
 </template>
