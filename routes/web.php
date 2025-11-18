@@ -19,16 +19,15 @@ Route::get('/dashboard', function () {
     return Inertia::render('Habilitacion/Ingreso');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// Rutas de perfil (ya protegidas)
+// Grupo protegido por auth
 Route::middleware('auth')->group(function () {
+
+    // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
 
-// Rutas de habilitaciones (DEBEN estar protegidas)
-Route::middleware('auth')->group(function () {
-
+    // Habilitaciones
     Route::get('/habilitacion/listado', function () {
         return Inertia::render('Habilitacion/Listado'); 
     })->name('habilitacion.listado');
@@ -40,6 +39,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/habilitacion/modificar', function () {
         return Inertia::render('Habilitacion/Modificar_Eliminar'); 
     })->name('habilitacion.modificar');
+
+    // Listados varios
+    Route::get('/listado-semestre', function () {
+        return Inertia::render('Habilitacion/ListadoSemestre');
+    })->name('listado.semestre');
+
+    Route::get('/listado-profesor', function () {
+        return Inertia::render('Habilitacion/ListadoProfesor');
+    })->name('listado.profesor');
 
 });
 
