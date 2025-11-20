@@ -2,30 +2,37 @@
 import { reactive, ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
-
-
-// --- ESTADOS REACTIVOS ---
+// Estados Reactivos
 const form = reactive({
-    id_habilitacion: '',
+    id_habilitacion: '', 
     modalidad: 'PrIng',
-    alumno_id: '',
+    // Alumnos
+    rut_alumno: '',
     alumno_nombre: '',
-    profesor_dinf_id: '',
+    // Profesores
+    profesor_dinf_id: '',      
     profesor_dinf_rut: '',
-    comision_profesor_id: '',
+    profesor_dinf_nombre: '',  
+    
+    comision_profesor_id: '', 
     comision_profesor_rut: '',
-    co_guia_id: '',
+    comision_profesor_nombre: '', 
+    
+    co_guia_id: '',            
     co_guia_rut: '',
-    profesor_tutor_id: '',
+    co_guia_nombre: '',       
+    
+    profesor_tutor_id: '',     
     profesor_tutor_rut: '',
-    semestre_inicio: '',
-    titulo: '',
-    descripcion_proyecto: '',
-    empresa_nombre: '',
-    supervisor_empresa: '',
-    descripcion_practica: '',
+    profesor_tutor_nombre: '', 
+
+    semestre_inicio: '',      
+    titulo: '',                
+    descripcion_proyecto: '',  
+    empresa_nombre: '',        
+    supervisor_empresa: '',    
+    descripcion_practica: '',  
 });
 
 const showSuccess = ref(false);
@@ -34,18 +41,22 @@ const alumnos = ref([]);
 const profesores = ref([]);
 const errorAlumno = ref('');
 
-// FILTROS
+// Filtros
 const profesoresDINF = computed(() =>
     profesores.value.filter(p => (p.departamento || '').toUpperCase().trim() === 'DINF')
 );
-
 const profesoresCoGuia = computed(() => profesores.value);
-
-// Computeds de tipo de modalidad
 const isProyecto = computed(() => ['PrIng', 'PrInv'].includes(form.modalidad));
 const isPractica = computed(() => form.modalidad === 'PrTut');
 
-// --- FUNCIONES ---
+//Validaciones
+const regexRut = /^[1-9][0-9]{0,7}$/; 
+const regexNombreTexto = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,50}$/;
+const regexTitulo = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,25}$/;
+const regexSemestreFormato = /^\d{4}-(1|2)$/;
+const validarDescripcionLargo = (d) => d && d.length <= 350;
+
+//Carga de datos
 const fetchUsers = async () => {
     try {
         const usersRes = await axios.get('/api/users/list');
@@ -53,78 +64,188 @@ const fetchUsers = async () => {
             alumnos.value = usersRes.data.alumnos;
             profesores.value = usersRes.data.profesores;
         }
-
         const profRes = await axios.get('/api/profesores');
-        console.log('Respuesta completa de /api/profesores:', profRes.data);
         profesores.value = profRes.data.todos || profesores.value;
-
-        console.log('Profesores finales cargados:', profesores.value);
     } catch (err) {
         console.error('Error fetchUsers', err);
-        errorMessage.value =
-            'Error al cargar alumnos y profesores: ' +
-            (err.response?.data?.message || err.message);
-        setTimeout(() => (errorMessage.value = ''), 5000);
     }
 };
 
-// 🔹 WATCHERS para llenar automáticamente los RUT según selección
-watch(() => form.profesor_dinf_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
-    form.profesor_dinf_rut = prof ? prof.rut_profesor : '';
-});
+//Watchers
+const asignarDatosProfesor = (idProfesor, campoRut, campoNombre) => {
+    const prof = profesores.value.find(p => p.rut_profesor.toString() === idProfesor);
+    form[campoRut] = prof ? prof.rut_profesor : '';
+    form[campoNombre] = prof ? (prof.nombre || prof.name || '') : '';
+};
 
-watch(() => form.comision_profesor_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
-    form.comision_profesor_rut = prof ? prof.rut_profesor : '';
-});
+watch(() => form.profesor_dinf_id, (n) => asignarDatosProfesor(n, 'profesor_dinf_rut', 'profesor_dinf_nombre'));
+watch(() => form.comision_profesor_id, (n) => asignarDatosProfesor(n, 'comision_profesor_rut', 'comision_profesor_nombre'));
+watch(() => form.co_guia_id, (n) => asignarDatosProfesor(n, 'co_guia_rut', 'co_guia_nombre'));
+watch(() => form.profesor_tutor_id, (n) => asignarDatosProfesor(n, 'profesor_tutor_rut', 'profesor_tutor_nombre'));
 
-watch(() => form.co_guia_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
-    form.co_guia_rut = prof ? prof.rut_profesor : '';
-});
-
-watch(() => form.profesor_tutor_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
-    form.profesor_tutor_rut = prof ? prof.rut_profesor : '';
-});
-
-
-// Seleccionar alumno
+//Función Buscar Alumno
 const buscarAlumnoPorRut = async () => {
     errorAlumno.value = '';
     form.alumno_nombre = '';
+    
+    // Usamos form.rut_alumno
+    if (!form.rut_alumno) return;
 
-    if (!form.alumno_id) return;
+    // R1.1 Validación inmediata
+    if (!regexRut.test(form.rut_alumno)) {
+        errorAlumno.value = 'El RUT del alumno debe ser un entero positivo de hasta 8 dígitos.';
+        return;
+    }
 
     try {
-        const res = await axios.get(`/api/alumnos/${form.alumno_id}`);
+        const res = await axios.get(`/api/alumnos/${form.rut_alumno}`);
         if (res.data && res.data.name) {
             form.alumno_nombre = res.data.name;
         } else {
             errorAlumno.value = 'No se encontró un alumno con ese RUT.';
         }
     } catch (err) {
-        console.error('Error al buscar alumno:', err);
-        errorAlumno.value = 'Error al consultar el alumno o no existe.';
+        if (err.response && err.response.status === 409) { 
+             errorAlumno.value = "El alumno ya posee una habilitación registrada y no puede tener más de una.";
+        } else {
+             errorAlumno.value = 'Error al consultar el alumno o no existe.';
+        }
     }
 };
 
-// Reset
+const validarFormulario = () => {
+    const errores = [];
+
+    // R1.1 RUT_ALUMNO (Validamos form.rut_alumno)
+    if (!form.rut_alumno || !regexRut.test(form.rut_alumno)) {
+        errores.push("RUT Alumno (Debe ser numérico 1-99999999)");
+    }
+    // R1.2 NOMBRE_ALUMNO
+    if (!form.alumno_nombre || !regexNombreTexto.test(form.alumno_nombre)) {
+        errores.push("Nombre Alumno (Solo letras y espacios, máx 50 caracteres)");
+    }
+
+    // R2.12 SEMESTRE
+    if (!form.semestre_inicio || !regexSemestreFormato.test(form.semestre_inicio)) {
+        errores.push("Semestre Inicio (Formato AAAA-1 o AAAA-2)");
+    } else {
+        const [year, sem] = form.semestre_inicio.split('-');
+        const yearNum = parseInt(year);
+        if (yearNum < 2025 || yearNum > 2050) {
+            errores.push("Semestre Inicio (Año debe estar entre 2025 y 2050)");
+        }
+    }
+
+    if (isProyecto.value) {
+        if (!form.profesor_dinf_id) errores.push("Profesor Guía es obligatorio");
+        else if (!regexRut.test(form.profesor_dinf_rut)) errores.push("RUT Profesor Guía inválido");
+
+        if (!form.comision_profesor_id) errores.push("Profesor Comisión es obligatorio");
+        else if (!regexRut.test(form.comision_profesor_rut)) errores.push("RUT Profesor Comisión inválido");
+
+        if (form.co_guia_id && !regexRut.test(form.co_guia_rut)) errores.push("RUT Co-Guía inválido");
+
+        if (!form.titulo || !regexTitulo.test(form.titulo)) 
+            errores.push("Título (Obligatorio, solo letras, máx 25 caracteres)");
+
+        if (!form.descripcion_proyecto || !validarDescripcionLargo(form.descripcion_proyecto)) 
+            errores.push("Descripción Proyecto (Obligatorio, máx 350 caracteres)");
+    }
+
+    if (isPractica.value) {
+        if (!form.profesor_tutor_id) errores.push("Profesor Tutor es obligatorio");
+        else if (!regexRut.test(form.profesor_tutor_rut)) errores.push("RUT Profesor Tutor inválido");
+
+        if (!form.empresa_nombre || !regexNombreTexto.test(form.empresa_nombre)) 
+            errores.push("Nombre Empresa (Solo letras, sin números, máx 50 caracteres)");
+
+        if (!form.supervisor_empresa || !regexNombreTexto.test(form.supervisor_empresa)) 
+            errores.push("Nombre Supervisor (Solo letras, sin números, máx 50 caracteres)");
+
+        if (!form.descripcion_practica || !validarDescripcionLargo(form.descripcion_practica)) 
+            errores.push("Descripción Práctica (Obligatorio, máx 350 caracteres)");
+    }
+
+    return errores;
+};
+
+// Submit
+const submit = async () => {
+    showSuccess.value = false;
+    errorMessage.value = '';
+
+    const erroresValidacion = validarFormulario();
+    if (erroresValidacion.length > 0) {
+        errorMessage.value = "Revise los campos:\n" + erroresValidacion.map(e => `- ${e}`).join("\n");
+        window.scrollTo(0, 0);
+        return;
+    }
+
+    try {
+        const tipoHabilitacionMap = {
+            PrIng: 'Proyecto de Ingeniería',
+            PrInv: 'Proyecto de Investigación',
+            PrTut: 'Práctica Tutelada'
+        };
+        
+        let [yearPart, semPart] = form.semestre_inicio.split('-');
+
+        const payload = {
+            tipo_habilitacion: tipoHabilitacionMap[form.modalidad],
+            rut_alumno: parseInt(form.rut_alumno), 
+            alumno_nombre: form.alumno_nombre,
+            semestre_inicio_año: parseInt(yearPart),
+            semestre_inicio: semPart,
+            
+            descripcion: isProyecto.value ? form.descripcion_proyecto : form.descripcion_practica,
+            titulo: isProyecto.value ? form.titulo : null,
+            profesor_guia: isProyecto.value ? parseInt(form.profesor_dinf_id) : null,
+            profesor_comision: isProyecto.value ? parseInt(form.comision_profesor_id) : null,
+            profesor_coguia: (isProyecto.value && form.co_guia_id) ? parseInt(form.co_guia_id) : null,
+            profesor_tutor: isPractica.value ? parseInt(form.profesor_tutor_id) : null,
+            nombre_empresa: isPractica.value ? form.empresa_nombre : null,
+            nombre_supervisor: isPractica.value ? form.supervisor_empresa : null,
+        };
+
+        const res = await axios.post('/api/habilitaciones', payload);
+
+        const newId = res.data.id_habilitacion; 
+        errorMessage.value = `Habilitación creada exitosamente. (ID: ${newId})`;
+        showSuccess.value = true;
+        
+        setTimeout(() => {
+            showSuccess.value = false;
+            errorMessage.value = '';
+            resetForm();
+        }, 4000);
+
+    } catch (err) {
+        console.error('Error submit', err);
+        const responseData = err.response?.data;
+        
+        if (responseData?.message === 'DUPLICATE_ALUMNO' || err.response?.status === 409) {
+            errorMessage.value = "El alumno ya posee una habilitación registrada y no puede tener más de una.";
+        } else if (responseData?.errors) {
+            let s = 'Revise los campos (Backend):\n';
+            for (const k in responseData.errors) s += `- ${responseData.errors[k][0]}\n`;
+            errorMessage.value = s;
+        } else {
+            errorMessage.value = responseData?.message || 'Ocurrió un error al guardar.';
+        }
+        window.scrollTo(0, 0);
+    }
+};
+
 const resetForm = () => {
     Object.assign(form, {
         modalidad: 'PrIng',
-        alumno_id: '',
+        rut_alumno: '',
         alumno_nombre: '',
-        profesor_dinf_id: '',
-        profesor_dinf_rut: '',
-        profesor_tutor_id: '',
-        profesor_tutor_rut: '',
-        comision_profesor_id: '',
-        comision_profesor_rut: '',
-        co_guia_id: '',
-        co_guia_rut: '',
-        semestre_inicio: '',
+        profesor_dinf_id: '', profesor_dinf_rut: '', profesor_dinf_nombre: '',
+        profesor_tutor_id: '', profesor_tutor_rut: '', profesor_tutor_nombre: '',
+        comision_profesor_id: '', comision_profesor_rut: '', comision_profesor_nombre: '',
+        co_guia_id: '', co_guia_rut: '', co_guia_nombre: '',
+        semestre_inicio: form.semestre_inicio,
         titulo: '',
         descripcion_proyecto: '',
         empresa_nombre: '',
@@ -134,108 +255,15 @@ const resetForm = () => {
     });
 };
 
-// --- VALIDACIONES (sin cambios) ---
-const validarNombreEmpresa = (nombre) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,50}$/.test(nombre);
-const validarTitulo = (titulo) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,25}$/.test(titulo);
-const validarDescripcion = (d) => d.length <= 350 && /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9\s.,;:¡!¿?"'()\-_/&%$#@]*$/.test(d);
-const validarNombreSupervisor = (n) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]{1,50}$/.test(n);
-
-// --- SUBMIT (sin cambios) ---
-const submit = async () => {
-    showSuccess.value = false;
-    errorMessage.value = '';
-
-    if (!form.alumno_id) return (errorMessage.value = 'Seleccione un alumno.');
-    if (!form.semestre_inicio) return (errorMessage.value = 'Ingrese semestre de inicio.');
-
-    const semestreRegex = /^\d{4}-(1|2)$/;
-    if (!semestreRegex.test(form.semestre_inicio)) {
-        return (errorMessage.value = 'Revise los campos: Semestre de Inicio. \n Formato inválido. Use AAAA-1 o AAAA-2.');
-    }
-
-    if (isPractica.value && !validarNombreEmpresa(form.empresa_nombre))
-        return (errorMessage.value = 'Nombre Empresa inválido.');
-    if (isProyecto.value && !validarTitulo(form.titulo))
-        return (errorMessage.value = 'Título inválido.');
-    if (isProyecto.value && !validarDescripcion(form.descripcion_proyecto))
-        return (errorMessage.value = 'Descripción inválida.');
-    if (isPractica.value && !validarDescripcion(form.descripcion_practica))
-        return (errorMessage.value = 'Descripción inválida.');
-    if (isPractica.value && !validarNombreSupervisor(form.supervisor_empresa))
-        return (errorMessage.value = 'Nombre Supervisor inválido.');
-
-    if (isProyecto.value && (!form.profesor_dinf_id || !form.comision_profesor_id || !form.titulo))
-        return (errorMessage.value = 'Complete guía, comisión y título.');
-    if (isPractica.value && (!form.profesor_tutor_id || !form.empresa_nombre || !form.supervisor_empresa))
-        return (errorMessage.value = 'Complete tutor, empresa y supervisor.');
-
-    try {
-        let yearPart = null;
-        let semPart = null;
-        if (form.semestre_inicio.includes('-')) [yearPart, semPart] = form.semestre_inicio.split('-');
-
-        const tipoHabilitacionMap = {
-            PrIng: 'Proyecto de Ingeniería',
-            PrInv: 'Proyecto de Investigación',
-            PrTut: 'Práctica Tutelada'
-        };
-
-        const payload = {
-            tipo_habilitacion: tipoHabilitacionMap[form.modalidad],
-            rut_alumno: form.alumno_id ? parseInt(form.alumno_id) : null,
-            alumno_nombre: form.alumno_nombre,
-            semestre_inicio_año: yearPart ? parseInt(yearPart) : null,
-            semestre_inicio: semPart || null,
-            descripcion: isProyecto.value ? form.descripcion_proyecto : form.descripcion_practica,
-            titulo: form.titulo || null,
-            profesor_guia: isProyecto.value && form.profesor_dinf_id ? parseInt(form.profesor_dinf_id) : null,
-            profesor_comision: isProyecto.value && form.comision_profesor_id ? parseInt(form.comision_profesor_id) : null,
-            profesor_coguia: isProyecto.value && form.co_guia_id ? parseInt(form.co_guia_id) : null,
-            profesor_tutor: isPractica.value && form.profesor_tutor_id ? parseInt(form.profesor_tutor_id) : null,
-            nombre_empresa: isPractica.value ? form.empresa_nombre : null,
-            nombre_supervisor: isPractica.value ? form.supervisor_empresa : null,
-        };
-
-        const res = await axios.post('/api/habilitaciones', payload);
-        const newId = res.data.id_habilitacion;
-        errorMessage.value = `¡Habilitación ${newId} creada exitosamente!`;
-        showSuccess.value = true;
-        form.id_habilitacion = newId;
-        setTimeout(() => {
-            showSuccess.value = false;
-            errorMessage.value = '';
-            resetForm();
-        }, 4000);
-    } catch (err) {
-        console.error('Error submit', err);
-        const responseData = err.response?.data;
-        const validationErrors = responseData?.errors;
-        const backendMessage = responseData?.message || 'Ocurrió un error al guardar.';
-        const backendDetail = responseData?.error_detail;
-
-        if (validationErrors) {
-            let s = 'Revise los campos:\n';
-            for (const k in validationErrors) s += `- ${validationErrors[k][0]}\n`;
-            errorMessage.value = s;
-        } else if (backendDetail) {
-            errorMessage.value = `${backendMessage}\n\nDetalle: ${backendDetail}`;
-        } else {
-            errorMessage.value = backendMessage;
-        }
-        window.scrollTo(0, 0);
-    }
-};
-
-// onMounted
 onMounted(() => {
     fetchUsers();
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
     const semester = currentMonth >= 7 ? 2 : 1;
-    form.semestre_inicio = `${currentYear}-${semester}`;
+    const finalYear = Math.max(2025, currentYear);
+    form.semestre_inicio = `${finalYear}-${semester}`;
 });
 </script>
-
 
 <template>
     <AuthenticatedLayout>
@@ -291,7 +319,7 @@ onMounted(() => {
                     <input
                         type="text"
                         id="alumno_rut"
-                        v-model="form.alumno_id"
+                        v-model="form.rut_alumno"
                         @blur="buscarAlumnoPorRut"
                         required
                         placeholder="Ej: 12345678"
@@ -306,7 +334,7 @@ onMounted(() => {
                 </div>
             </div>
 
-            <!-- 🔹 Sección Proyecto -->
+            <!--Proyectos-->>
             <div v-if="isProyecto" class="mt-8 border p-4 rounded-lg bg-indigo-50">
                 <h2 class="text-xl font-semibold mb-4 text-indigo-800">Datos del Proyecto (Ingeniería / Investigación)</h2>
                 
@@ -337,7 +365,7 @@ onMounted(() => {
                             class="mt-2 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
                     </div>
 
-                    <!-- Co-Guía -->
+                    <!-- Profesor Co-Guía -->
                     <div>
                         <label for="co_guia" class="block text-sm font-medium text-gray-700">Co-Guía (Opcional)</label>
                         <select id="co_guia" v-model="form.co_guia_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -362,7 +390,7 @@ onMounted(() => {
                 </div>
             </div>
 
-            <!-- 🔹 Sección Práctica -->
+            <!-- Sección Práctica -->
             <div v-if="isPractica" class="mt-8 border p-4 rounded-lg bg-yellow-50">
                 <h2 class="text-xl font-semibold mb-4 text-yellow-800">Datos de la Práctica Tutelada</h2>
                 

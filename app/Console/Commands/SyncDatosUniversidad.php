@@ -86,11 +86,13 @@ class SyncDatosUniversidad extends Command
         }
     }
 
-    //Validaciones
+    //Validaciones 
 
     private function validarRut($rut): bool
     {
-        return preg_match('/^[0-9]{1,8}$/', $rut);
+        return preg_match('/^[0-9]{1,8}$/', $rut)
+        && intval($rut) >= 1
+        && intval($rut)<=99999999;
     }
 
     private function validarNombre($nombre): bool
@@ -105,7 +107,7 @@ class SyncDatosUniversidad extends Command
 
     private function validarFecha($fecha): bool
     {
-        return preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $fecha);
+        return preg_match('/^(202[5-9]|203[0-9]|204[0-9]|2050)\-(0[1-9]|1[0-2])\-(0[1-9]|[12][0-9]|3[01])$/', $fecha);
     }
 
     private function validarDepartamento($dep): bool
