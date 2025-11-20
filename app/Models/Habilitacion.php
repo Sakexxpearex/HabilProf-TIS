@@ -8,36 +8,34 @@ use Illuminate\Database\Eloquent\Model;
 class Habilitacion extends Model
 {
     use HasFactory;
-    
-    // Define todos los campos que pueden ser llenados masivamente desde el formulario
+
+    protected $table = 'habilitacion';
+    protected $primaryKey = 'id_habilitacion';
+
     protected $fillable = [
-        'modalidad',
+        'rut_alumno',
         'semestre_inicio',
-        'alumno_id',
-        'profesor_dinf_id',
-        'titulo',
-        'descripcion_proyecto',
-        'co_guia_nombre',
-        'comision_profesor_id',
-        'empresa_nombre',
-        'supervisor_empresa',
-        'descripcion_practica',
-        // Nota y fecha de nota se excluyen aquí porque se actualizan en otro momento
+        'descripcion',
+        'nota_final',
+        'fecha_nota',
+        'semestre_inicio_anho',
+        'tipo_habilitacion',
+        'profesor_dinf_id',      // si corresponde
+        'comision_profesor_id',  // si corresponde
     ];
 
-    // Define las relaciones para facilitar el Listado y Reportes
     public function alumno()
     {
-        return $this->belongsTo(User::class, 'alumno_id');
+        return $this->belongsTo(Alumno::class, 'rut_alumno', 'rut_alumno');
     }
 
     public function profesorDinf()
     {
-        return $this->belongsTo(User::class, 'profesor_dinf_id');
+        return $this->belongsTo(Profesor::class, 'profesor_dinf_id', 'rut_profesor');
     }
 
     public function comisionProfesor()
     {
-        return $this->belongsTo(User::class, 'comision_profesor_id');
+        return $this->belongsTo(Profesor::class, 'comision_profesor_id', 'rut_profesor');
     }
 }

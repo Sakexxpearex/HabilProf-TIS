@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ListadoController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -41,13 +42,13 @@ Route::middleware('auth')->group(function () {
     })->name('habilitacion.modificar');
 
     // Listados varios
-    Route::get('/listado-semestre', function () {
-        return Inertia::render('Habilitacion/ListadoSemestre');
-    })->name('listado.semestre');
+    Route::get('/listado-semestre', [ListadoController::class, 'listadoSemestre'])
+    ->name('listado.semestre');
 
-    Route::get('/listado-profesor', function () {
-        return Inertia::render('Habilitacion/ListadoProfesor');
-    })->name('listado.profesor');
+    Route::get('/listado-profesor', [ListadoController::class, 'listadoProfesor'])
+    ->name('listado.profesor');
+
+    
 
 });
 
