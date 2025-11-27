@@ -27,7 +27,13 @@ const logout = () => {
       >
         Listados
       </Link>
-
+      <!-- Botón Modificar / Eliminar -->
+      <Link
+        :href="route('habilitacion.modificar')"
+        class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition"
+      >
+        Modificar / Eliminar
+      </Link>
 
         <!-- Logout -->
         <button 

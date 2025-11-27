@@ -184,7 +184,7 @@ const submit = async () => {
             tipo_habilitacion: tipoHabilitacionMap[form.modalidad],
             rut_alumno: form.alumno_id ? parseInt(form.alumno_id) : null,
             alumno_nombre: form.alumno_nombre,
-            semestre_inicio_año: yearPart ? parseInt(yearPart) : null,
+            semestre_inicio_anho: yearPart ? parseInt(yearPart) : null,
             semestre_inicio: semPart || null,
             descripcion: isProyecto.value ? form.descripcion_proyecto : form.descripcion_practica,
             titulo: form.titulo || null,

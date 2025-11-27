@@ -11,7 +11,7 @@ class Habilitacion extends Model
 
     protected $table = 'habilitacion';
     protected $primaryKey = 'id_habilitacion';
-
+    public $timestamps = false;
     protected $fillable = [
         'rut_alumno',
         'semestre_inicio',
@@ -23,7 +23,7 @@ class Habilitacion extends Model
         'profesor_dinf_id',      // si corresponde
         'comision_profesor_id',  // si corresponde
     ];
-
+   
     public function alumno()
     {
         return $this->belongsTo(Alumno::class, 'rut_alumno', 'rut_alumno');

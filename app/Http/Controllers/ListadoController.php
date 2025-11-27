@@ -7,16 +7,25 @@ use App\Models\User;
 
 class ListadoController extends Controller
 {
-public function listadoSemestre()
-{
-    $habilitaciones = Habilitacion::with([
-        'alumno',
-        'profesorDinf',
-        'comisionProfesor'
-    ])
-    ->orderBy('semestre_inicio_año', 'asc')  // <-- corregido
-    ->orderBy('semestre_inicio', 'asc')
-    ->get();
+    /**
+     * Listado ordenado por semestre (año y número)
+     */
+    public function listadoSemestre()
+    {
+    $habilitaciones = Habilitacion::with(['alumno', 'profesorDinf'])
+        ->orderBy('semestre_inicio_año', 'asc')
+        ->orderBy('semestre_inicio', 'asc')
+        ->get()
+        ->map(function ($h) {
+            return [
+                'rut_alumno' => $h->alumno->rut_alumno ?? 'N/A',
+                'nombre_alumno' => $h->alumno->nombre_alumno ?? 'N/A',
+                'tipo_habilitacion' => $h->tipo_habilitacion,
+                'rut_profesor' => $h->profesorDinf->rut_usuario ?? 'N/A',
+                'nombre_profesor' => $h->profesorDinf->nombre_usuario ?? 'N/A',
+                'semestre_inicio' => $h->semestre_inicio,
+            ];
+        });
 
     return inertia('Habilitacion/ListadoSemestre', [
         'habilitaciones' => $habilitaciones
@@ -25,14 +34,17 @@ public function listadoSemestre()
 
 
 
+    /**
+     * Listado agrupado por profesor
+     * (como profesor guía o como comisión)
+     */
     public function listadoProfesor()
     {
-        // Profesores que participan como guía o comisión
         $profesores = User::with([
             'habilitacionesComoGuia',
             'habilitacionesComoComision'
         ])
-        ->where('tipo_usuario', 'profesor') // si tienes un campo para filtrar
+        ->where('tipo_usuario', 'profesor')
         ->get();
 
         return inertia('Habilitacion/ListadoProfesor', [

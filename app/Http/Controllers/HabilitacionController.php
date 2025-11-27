@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use App\Models\Habilitacion;
 class HabilitacionController extends Controller
 {
     public function store(Request $request)
@@ -13,7 +13,7 @@ class HabilitacionController extends Controller
         // Validación
         $validated = $request->validate([
             'rut_alumno' => 'required|integer', 
-            'semestre_inicio_año' => 'required|integer|min:2000|max:2100',
+            'semestre_inicio_anho' => 'required|integer|min:2000|max:2100',
             'semestre_inicio' => 'required|integer|min:1|max:2', 
             'descripcion' => 'nullable|string',
             'tipo_habilitacion' => 'required|string|in:Proyecto de Ingeniería,Proyecto de Investigación,Práctica Tutelada',
@@ -77,7 +77,7 @@ class HabilitacionController extends Controller
             // Inserta en habilitación
             $nuevoID = DB::table('habilitacion')->insertGetId([
                 'rut_alumno' => $validated['rut_alumno'],
-                'semestre_inicio_año' => $validated['semestre_inicio_año'],
+                'semestre_inicio_anho' => $validated['semestre_inicio_anho'],
                 'semestre_inicio' => $validated['semestre_inicio'],
                 'descripcion' => $validated['descripcion'] ?? null,
                 'tipo_habilitacion' => $request->input('tipo_habilitacion'),
@@ -172,6 +172,47 @@ class HabilitacionController extends Controller
             ], 500);
         }
     }
+        public function buscarPorRut($rut)
+    {
+        $habilitacion = Habilitacion::where('rut_alumno', $rut)->get();
+
+        if ($habilitacion->isEmpty()) {
+            return response()->json([], 200);
+        }
+
+        return response()->json($habilitacion, 200);
+    }
+
+            public function update(Request $request, $id)
+    {
+        $habilitacion = Habilitacion::find($id);
+
+        if (!$habilitacion) {
+            return response()->json(['error' => 'No encontrada'], 404);
+        }
+
+        $habilitacion->update($request->all());
+
+        return response()->json([
+            'message' => 'Modificada correctamente',
+            'data' => $habilitacion
+        ]);
+    }
+            public function destroy($id)
+    {
+        $habilitacion = Habilitacion::find($id);
+
+        if (!$habilitacion) {
+            return response()->json(['error' => 'Habilitación no encontrada'], 404);
+        }
+
+        $habilitacion->delete();
+
+        return response()->json([
+            'message' => 'Habilitación eliminada correctamente'
+        ]);
+    }
+
 
     public function getNextId()
     {

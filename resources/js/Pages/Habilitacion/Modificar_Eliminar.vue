@@ -1,90 +1,91 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref } from 'vue';
 import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
 
-// --- ESTADOS REACTIVOS ---
 const form = reactive({
+    rut_alumno: '',
     id_habilitacion: '',
-    accion: 'Modificar', // valor inicial
     tipo_habilitacion: '',
-    rut_profesor: '',
-    nombre_profesor: '',
-    nombre_empresa: '',
-    nombre_supervisor: '',
-    titulo: '',
+    semestre_inicio: '',
     descripcion: '',
     nota_final: '',
-    fecha_nota: ''
+    fecha_nota: '',
 });
 
 const habilitacionEncontrada = ref(false);
-const showSuccess = ref(false);
 const errorMessage = ref('');
-const confirmDelete = ref(false); // para mostrar confirmación de eliminación
+const showSuccess = ref(false);
 
-// --- FUNCIONES ---
-
-// Buscar habilitación por ID
-const buscarHabilitacion = async () => {
+// Buscar por RUT
+const buscarPorRut = async () => {
     errorMessage.value = '';
     showSuccess.value = false;
     habilitacionEncontrada.value = false;
 
-    if (!form.id_habilitacion) {
-        errorMessage.value = 'Debe ingresar un ID de habilitación válido.';
+    if (!form.rut_alumno) {
+        errorMessage.value = 'Debe ingresar un RUT.';
         return;
     }
 
     try {
-        const response = await axios.get(`/api/habilitaciones/${form.id_habilitacion}`);
-        const data = response.data;
+        const response = await axios.get(`/api/habilitaciones/rut/${form.rut_alumno}`);
+        const datos = response.data;
 
-        // Cargar los datos obtenidos al formulario
-        Object.assign(form, data);
+        if (datos.length === 0) {
+            errorMessage.value = 'No existe habilitación para este alumno.';
+            return;
+        }
+
+        const h = datos[0]; // un alumno tiene una sola habilitación
+
+        form.id_habilitacion = h.id_habilitacion;
+        form.tipo_habilitacion = h.tipo_habilitacion;
+        form.semestre_inicio = h.semestre_inicio;
+        form.descripcion = h.descripcion;
+        form.nota_final = h.nota_final;
+        form.fecha_nota = h.fecha_nota;
+
         habilitacionEncontrada.value = true;
+
     } catch (error) {
-        errorMessage.value = 'Habilitación no registrada.';
+        errorMessage.value = 'Error al buscar habilitación.';
     }
 };
 
-// Guardar cambios (MODIFICAR)
-const modificarHabilitacion = async () => {
-    errorMessage.value = '';
-    showSuccess.value = false;
-
+// Modificar habilitación
+const modificar = async () => {
     try {
-        const response = await axios.put(`/api/habilitaciones/${form.id_habilitacion}`, form);
+        await axios.put(`/api/habilitaciones/${form.id_habilitacion}`, {
+            tipo_habilitacion: form.tipo_habilitacion,
+            semestre_inicio: form.semestre_inicio,
+            descripcion: form.descripcion,
+            nota_final: form.nota_final,
+        });
+
         showSuccess.value = true;
         habilitacionEncontrada.value = false;
 
-        // Limpiar formulario
-        for (const key in form) {
-            form[key] = '';
-        }
+        setTimeout(() => showSuccess.value = false, 3500);
 
-        setTimeout(() => (showSuccess.value = false), 4000);
     } catch (error) {
-        errorMessage.value = 'Error de modificación. Datos no válidos.';
+        errorMessage.value = 'Error al modificar la habilitación.';
     }
-};
-
-// Confirmación de eliminación
-const confirmarEliminacion = () => {
-    confirmDelete.value = true;
 };
 
 // Eliminar habilitación
-const eliminarHabilitacion = async () => {
-    errorMessage.value = '';
-    showSuccess.value = false;
-    confirmDelete.value = false;
-
+const eliminar = async () => {
     try {
         await axios.delete(`/api/habilitaciones/${form.id_habilitacion}`);
+
         showSuccess.value = true;
         habilitacionEncontrada.value = false;
-        for (const key in form) form[key] = '';
+
+        // limpiar form
+        for (const k in form) form[k] = '';
+
+        setTimeout(() => showSuccess.value = false, 3500);
+
     } catch (error) {
         errorMessage.value = 'Error al eliminar la habilitación.';
     }
@@ -92,123 +93,81 @@ const eliminarHabilitacion = async () => {
 </script>
 
 <template>
-    <Head title="Modificar o Eliminar Habilitación" />
+    <Head title="Modificar o Eliminar por RUT" />
 
-    <div class="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-xl">
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">Modificar o Eliminar Habilitación</h1>
+    <div class="p-6 max-w-3xl mx-auto bg-white shadow-md rounded-lg">
 
-        <div v-if="showSuccess" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-            {{ form.accion === 'Modificar' ? 'Habilitación modificada correctamente.' : 'La habilitación ha sido eliminada correctamente.' }}
+        <h1 class="text-xl font-bold mb-4">Buscar, Modificar o Eliminar Habilitación</h1>
+
+        <div v-if="showSuccess" class="bg-green-200 text-green-800 px-4 py-3 rounded mb-4">
+            Operación realizada correctamente.
         </div>
 
-        <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 whitespace-pre-line" role="alert">
+        <div v-if="errorMessage" class="bg-red-200 text-red-800 px-4 py-3 rounded mb-4">
             {{ errorMessage }}
         </div>
 
-        <div class="mb-6 flex gap-4 items-end">
-            <div class="flex-1">
-                <label for="id" class="block text-sm font-medium text-gray-700">ID Habilitación</label>
-                <input
-                    id="id"
-                    v-model="form.id_habilitacion"
-                    type="number"
-                    min="1"
-                    max="999999"
-                    required
-                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    placeholder="Ej: 123456"
-                />
-            </div>
+        <!-- Buscar por RUT -->
+        <div class="flex gap-4 mb-6">
+            <input
+                v-model="form.rut_alumno"
+                type="number"
+                placeholder="RUT alumno"
+                class="border p-2 w-full rounded"
+            >
+
             <button
-                @click="buscarHabilitacion"
-                class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-md hover:bg-blue-700 transition duration-150"
+                @click="buscarPorRut"
+                class="bg-blue-600 text-white px-4 py-2 rounded"
             >
                 Buscar
             </button>
         </div>
 
+        <!-- Si encuentra algo -->
         <div v-if="habilitacionEncontrada" class="border-t pt-6">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">Acción</label>
-                <select v-model="form.accion" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                    <option value="Modificar">Modificar</option>
-                    <option value="Eliminar">Eliminar</option>
-                </select>
+
+            <div class="grid grid-cols-1 gap-4">
+
+                <div>
+                    <label class="text-sm text-gray-700">Tipo Habilitación</label>
+                    <select v-model="form.tipo_habilitacion" class="border p-2 w-full rounded">
+                        <option value="Proyecto Ingeniería">Proyecto Ingeniería</option>
+                        <option value="Proyecto Investigación">Proyecto Investigación</option>
+                        <option value="Práctica Tutelada">Práctica Tutelada</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-700">Semestre Inicio</label>
+                    <input v-model="form.semestre_inicio" type="number" class="border p-2 w-full rounded">
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-700">Descripción</label>
+                    <textarea v-model="form.descripcion" rows="3" class="border p-2 w-full rounded"></textarea>
+                </div>
+
             </div>
 
-            <div v-if="form.accion === 'Modificar'">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Tipo Habilitación</label>
-                        <select v-model="form.tipo_habilitacion" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                            <option value="PrIng">Proyecto Ingeniería</option>
-                            <option value="PrInv">Proyecto Investigación</option>
-                            <option value="PrTut">Práctica Tutelada</option>
-                        </select>
-                    </div>
+            <div class="flex gap-4 mt-6 justify-end">
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">RUT Profesor</label>
-                        <input v-model="form.rut_profesor" type="number" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                    </div>
+                <button
+                    @click="modificar"
+                    class="bg-green-600 text-white px-4 py-2 rounded"
+                >
+                    Guardar Cambios
+                </button>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nombre Profesor</label>
-                        <input v-model="form.nombre_profesor" type="text" maxlength="50" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nombre Empresa</label>
-                        <input v-model="form.nombre_empresa" type="text" maxlength="50" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Supervisor Empresa</label>
-                        <input v-model="form.nombre_supervisor" type="text" maxlength="50" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Título</label>
-                        <input v-model="form.titulo" type="text" maxlength="25" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                    </div>
-
-                    <div class="col-span-full">
-                        <label class="block text-sm font-medium text-gray-700">Descripción</label>
-                        <textarea v-model="form.descripcion" rows="3" maxlength="350" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nota Final</label>
-                        <input v-model="form.nota_final" type="text" readonly class="mt-1 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Fecha Nota</label>
-                        <input v-model="form.fecha_nota" type="date" readonly class="mt-1 block w-full border border-gray-200 bg-gray-100 rounded-md shadow-sm p-2" />
-                    </div>
-                </div>
-
-                <div class="mt-6 flex justify-end">
-                    <button @click="modificarHabilitacion" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700 transition duration-150">
-                        Guardar Cambios
-                    </button>
-                </div>
+                <button
+                    @click="eliminar"
+                    class="bg-red-600 text-white px-4 py-2 rounded"
+                >
+                    Eliminar
+                </button>
             </div>
 
-            <div v-else class="mt-6">
-                <div class="bg-yellow-50 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4">
-                    ¿Desea eliminar la habilitación del alumno ID {{ form.id_habilitacion }}?
-                </div>
-
-                <div class="flex gap-4 justify-end">
-                    <button @click="eliminarHabilitacion" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 transition duration-150">
-                        Confirmar Eliminación
-                    </button>
-                    <button @click="confirmDelete = false" class="px-6 py-2 bg-gray-400 text-white font-semibold rounded-md shadow-md hover:bg-gray-500 transition duration-150">
-                        Cancelar
-                    </button>
-                </div>
-            </div>
         </div>
+
     </div>
 </template>

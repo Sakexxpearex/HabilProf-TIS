@@ -16,3 +16,9 @@ Route::get('/habilitaciones', [HabilitacionController::class, 'index'])->name('h
 Route::get('/habilitaciones/next-id', [HabilitacionController::class, 'getNextId']);
 Route::get('/profesores', [HabilitacionController::class, 'obtenerProfesores']);
 Route::get('/alumnos/{rut}', [AlumnoController::class, 'buscarPorRut']);
+Route::get('/habilitaciones/rut/{rut}', [HabilitacionController::class, 'buscarPorRut']);
+
+Route::put('/habilitaciones/{id}', [HabilitacionController::class, 'update']);
+
+// Eliminar
+Route::delete('/habilitaciones/{id}', [HabilitacionController::class, 'destroy']);
