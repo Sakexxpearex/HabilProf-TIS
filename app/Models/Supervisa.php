@@ -7,23 +7,21 @@ use Illuminate\Database\Eloquent\Model;
 class Supervisa extends Model
 {
     protected $table = 'supervisa';
+    public $timestamps = false;
 
     protected $fillable = [
-        'tipo_supervision',
-        'profesor_id',
-        'alumno_id',
-        'habilitacion_id'
+        'rut_profesor',
+        'id_habilitacion',
+        'tipo_profesor', // guía, comisión, etc.
     ];
 
-    public function alumno() {
-        return $this->belongsTo(Alumno::class);
+    public function profesor()
+    {
+        return $this->belongsTo(Profesor::class, 'rut_profesor', 'rut_profesor');
     }
 
-    public function profesor() {
-        return $this->belongsTo(Profesor::class);
-    }
-
-    public function habilitacion() {
-        return $this->belongsTo(Habilitacion::class);
+    public function habilitacion()
+    {
+        return $this->belongsTo(Habilitacion::class, 'id_habilitacion', 'id_habilitacion');
     }
 }

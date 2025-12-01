@@ -1,51 +1,51 @@
-<template>
-    <div class="p-6">
-        <h1 class="text-2xl font-bold mb-4">Listado por Profesor</h1>
-
-        <div v-for="p in profesores" :key="p.id" class="mb-8">
-
-            <h2 class="text-xl font-semibold mb-2">
-                {{ p.name }}
-            </h2>
-
-            <table class="w-full border mb-3">
-                <thead>
-                    <tr class="bg-gray-100">
-                        <th class="border p-2">Alumno</th>
-                        <th class="border p-2">Título</th>
-                        <th class="border p-2">Modalidad</th>
-                        <th class="border p-2">Semestre</th>
-                        <th class="border p-2">Tipo Supervisión</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    <!-- Como Guía -->
-                    <tr v-for="h in p.habilitaciones_como_guia" :key="h.id">
-                        <td class="border p-2">{{ h.alumno?.name }}</td>
-                        <td class="border p-2">{{ h.titulo }}</td>
-                        <td class="border p-2">{{ h.modalidad }}</td>
-                        <td class="border p-2">{{ h.semestre_inicio }}</td>
-                        <td class="border p-2">Guía</td>
-                    </tr>
-
-                    <!-- Como Comisión -->
-                    <tr v-for="h in p.habilitaciones_como_comision" :key="h.id">
-                        <td class="border p-2">{{ h.alumno?.name }}</td>
-                        <td class="border p-2">{{ h.titulo }}</td>
-                        <td class="border p-2">{{ h.modalidad }}</td>
-                        <td class="border p-2">{{ h.semestre_inicio }}</td>
-                        <td class="border p-2">Comisión</td>
-                    </tr>
-                </tbody>
-            </table>
-
-        </div>
-    </div>
-</template>
-
 <script setup>
-defineProps({
-    profesores: Array
+import { computed } from "vue";
+
+const props = defineProps({
+  profesores: Array,
+  mensaje: String,
+});
+
+// Aplana todas las habilitaciones en una sola tabla
+const filas = computed(() => {
+  return props.profesores.flatMap((p) =>
+    p.habilitaciones.map((h) => ({
+      rut_profesor: p.rut_profesor,
+      nombre_profesor: p.nombre_profesor,
+      rut_alumno: h.rut_alumno,
+      nombre_alumno: h.nombre_alumno,
+    }))
+  );
 });
 </script>
+
+<template>
+  <div class="p-6">
+    <h1 class="text-2xl font-bold mb-4">Listado Histórico por Profesor</h1>
+
+    <table
+      v-if="filas.length > 0"
+      class="w-full border-collapse border border-gray-300 text-left"
+    >
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="border px-2 py-1">RUT Profesor</th>
+          <th class="border px-2 py-1">Nombre Profesor</th>
+          <th class="border px-2 py-1">RUT Alumno</th>
+          <th class="border px-2 py-1">Nombre Alumno</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr v-for="(f, index) in filas" :key="index">
+          <td class="border px-2 py-1">{{ f.rut_profesor }}</td>
+          <td class="border px-2 py-1">{{ f.nombre_profesor }}</td>
+          <td class="border px-2 py-1">{{ f.rut_alumno }}</td>
+          <td class="border px-2 py-1">{{ f.nombre_alumno }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p v-else class="text-gray-500 mt-4">No hay registros disponibles.</p>
+  </div>
+</template>

@@ -2,30 +2,23 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Profesor extends Model
 {
-    use HasFactory;
-
     protected $table = 'profesor';
     protected $primaryKey = 'rut_profesor';
-    public $incrementing = false;
-    protected $keyType = 'integer';
+    public $timestamps = false;
 
     protected $fillable = [
         'rut_profesor',
-        'nombre_profesor_departamento',
+        'nombre_profesor',
+        'departamento'
     ];
 
-    public function habilitacionesComoGuia()
+    public function supervisa()
     {
-        return $this->hasMany(Habilitacion::class, 'profesor_dinf_id', 'rut_profesor');
-    }
-
-    public function habilitacionesComoComision()
-    {
-        return $this->hasMany(Habilitacion::class, 'comision_profesor_id', 'rut_profesor');
+        return $this->hasMany(Supervisa::class, 'rut_profesor', 'rut_profesor')
+            ->with('habilitacion.alumno');
     }
 }
