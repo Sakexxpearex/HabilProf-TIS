@@ -13,7 +13,7 @@ class ListadoController extends Controller
     public function listadoSemestre()
     {
     $habilitaciones = Habilitacion::with(['alumno', 'profesorDinf'])
-        ->orderBy('semestre_inicio_año', 'asc')
+        ->orderBy('semestre_inicio_anho', 'asc')
         ->orderBy('semestre_inicio', 'asc')
         ->get()
         ->map(function ($h) {
