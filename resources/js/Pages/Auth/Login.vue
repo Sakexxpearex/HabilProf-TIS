@@ -24,33 +24,48 @@ const form = useForm({
 const validarCampo = (valor) => /^[A-Za-z0-9]{1,20}$/.test(valor);
 
 const submit = () => {
-  mensaje.value = '';
+    console.log("SUBMIT EJECUTADO");
 
-  const usuarioTrim = form.usuario.trim();
-  const passwordTrim = form.password.trim();
+    mensaje.value = '';
 
-  if (!usuarioTrim || !passwordTrim) {
-    mensaje.value = 'Debe completar ambos campos';
-    return;
-  }
+    const usuarioTrim = form.usuario.trim();
+    const passwordTrim = form.password.trim();
 
-  if (!validarCampo(usuarioTrim) || !validarCampo(passwordTrim)) {
-    mensaje.value =
-      'Solo se permiten letras y números, sin espacios ni caracteres especiales (máx. 20)';
-    return;
-  }
+    if (!usuarioTrim || !passwordTrim) {
+        console.log("FALTAN CAMPOS");
+        mensaje.value = 'Debe completar ambos campos';
+        return;
+    }
 
-  form.post(route('login'), {
-    data: {
-      usuario: usuarioTrim,
-      password: passwordTrim,
-      remember: form.remember,
-    },
-    onSuccess: () => (mensaje.value = 'Ingresado exitosamente'),
-    onError: () => (mensaje.value = 'Usuario o contraseña incorrectos'),
-    onFinish: () => form.reset('password'),
-  });
+    if (!validarCampo(usuarioTrim) || !validarCampo(passwordTrim)) {
+        console.log("REGEX FALLÓ");
+        mensaje.value =
+            'Solo se permiten letras y números, sin espacios ni caracteres especiales (máx. 20)';
+        return;
+    }
+
+    console.log("ENVIANDO AL BACKEND");
+
+    form.post(route('login'), {
+        onSuccess: () => {
+            console.log("LOGIN OK");
+            mensaje.value = "Ingresado exitosamente";
+
+            setTimeout(() => {
+                console.log("REDIRECCIONANDO…");
+                window.location.href = route('dashboard');
+            }, 1500);
+        },
+
+        onError: () => {
+            console.log("LOGIN ERROR");
+            mensaje.value = "Usuario o contraseña incorrectos";
+        }
+    });
 };
+
+
+
 </script>
 
 <template>
@@ -102,9 +117,13 @@ const submit = () => {
             Ingresar
           </PrimaryButton>
 
-          <p v-if="mensaje" class="mt-4 text-sm text-center text-red-600">
+          <p v-if="mensaje"
+            class="mt-4 text-sm text-center"
+            :class="mensaje === 'Ingresado exitosamente' ? 'text-green-600' : 'text-red-600'">
             {{ mensaje }}
           </p>
+
+
         </form>
       </div>
     </div>

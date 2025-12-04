@@ -68,26 +68,50 @@ const fetchUsers = async () => {
     }
 };
 
-// 🔹 WATCHERS para llenar automáticamente los RUT según selección
 watch(() => form.profesor_dinf_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    if (!nuevo || profesores.value.length === 0) {
+        form.profesor_dinf_rut = '';
+        return;
+    }
+    const prof = profesores.value.find(p =>
+        p?.rut_profesor?.toString?.() === nuevo
+    );
     form.profesor_dinf_rut = prof ? prof.rut_profesor : '';
 });
 
 watch(() => form.comision_profesor_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    if (!nuevo || profesores.value.length === 0) {
+        form.comision_profesor_rut = '';
+        return;
+    }
+    const prof = profesores.value.find(p =>
+        p?.rut_profesor?.toString?.() === nuevo
+    );
     form.comision_profesor_rut = prof ? prof.rut_profesor : '';
 });
 
 watch(() => form.co_guia_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    if (!nuevo || profesores.value.length === 0) {
+        form.co_guia_rut = '';
+        return;
+    }
+    const prof = profesores.value.find(p =>
+        p?.rut_profesor?.toString?.() === nuevo
+    );
     form.co_guia_rut = prof ? prof.rut_profesor : '';
 });
 
 watch(() => form.profesor_tutor_id, (nuevo) => {
-    const prof = profesores.value.find(p => p.rut_profesor.toString() === nuevo);
+    if (!nuevo || profesores.value.length === 0) {
+        form.profesor_tutor_rut = '';
+        return;
+    }
+    const prof = profesores.value.find(p =>
+        p?.rut_profesor?.toString?.() === nuevo
+    );
     form.profesor_tutor_rut = prof ? prof.rut_profesor : '';
 });
+
 
 
 // Seleccionar alumno
