@@ -10,30 +10,39 @@ class ListadoController extends Controller
     /**
      * R4.11 - Listado por semestre
      */
-    public function listadoSemestre()
-    {
-        $habilitaciones = Habilitacion::with(['alumno', 'supervisores.profesor'])
-            ->orderBy('semestre_inicio_anho', 'asc')
-            ->orderBy('semestre_inicio', 'asc')
-            ->get()
-            ->map(function ($h) {
+public function listadoSemestre()
+{
+    $habilitaciones = Habilitacion::with(['alumno', 'supervisores.profesor'])
+        ->orderBy('semestre_inicio_anho', 'asc')
+        ->orderBy('semestre_inicio', 'asc')
+        ->get()
+        ->map(function ($h) {
 
-                $supervisor = $h->supervisores->first();
+            $supervisor = $h->supervisores->first();
 
-                return [
-                    'rut_alumno'      => $h->alumno->rut_alumno ?? 'N/A',
-                    'nombre_alumno'   => $h->alumno->nombre_alumno ?? 'N/A',
-                    'tipo_habilitacion' => $h->tipo_habilitacion,
-                    'rut_profesor'    => $supervisor?->profesor?->rut_profesor ?? 'N/A',
-                    'nombre_profesor' => $supervisor?->profesor?->nombre_profesor ?? 'N/A',
-                    'semestre_inicio' => $h->semestre_inicio,
-                ];
-            });
+            return [
+                'rut_alumno'        => $h->alumno->rut_alumno ?? 'N/A',
+                'nombre_alumno'     => $h->alumno->nombre_alumno ?? 'N/A',
+                'tipo_habilitacion' => $h->tipo_habilitacion,
+                'rut_profesor'      => $supervisor?->profesor?->rut_profesor ?? 'N/A',
+                'nombre_profesor'   => $supervisor?->profesor?->nombre_profesor ?? 'N/A',
+                'semestre_inicio'   => $h->semestre_inicio,
+            ];
+        });
 
+    if ($habilitaciones->isEmpty()) {
         return inertia('Habilitacion/ListadoSemestre', [
-            'habilitaciones' => $habilitaciones
+            'habilitaciones' => [],
+            'mensaje' => 'No hay datos disponibles para generar el listado solicitado.',
         ]);
     }
+
+    return inertia('Habilitacion/ListadoSemestre', [
+        'habilitaciones' => $habilitaciones,
+        'mensaje' => null,
+    ]);
+}
+
 
 
     /**
