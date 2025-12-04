@@ -40,39 +40,45 @@ class ListadoController extends Controller
      * R4.12 - Listado histórico por profesor
      */
     public function listadoProfesor()
-    {
-        $profesores = Profesor::with([
-            'supervisa.habilitacion.alumno'
-        ])->get();
+{
+    $profesores = Profesor::with([
+        'supervisa.habilitacion.alumno'
+    ])->get();
 
-        // Solo profesores con datos
-        $profesores = $profesores->filter(fn($p) => $p->supervisa->isNotEmpty());
+    // Solo profesores con datos
+    $profesores = $profesores->filter(fn($p) => $p->supervisa->isNotEmpty());
 
-        // Formato del requisito
-        $profesores = $profesores->map(function ($p) {
+    // Formato del requisito
+    $profesores = $profesores->map(function ($p) {
 
-            // eliminar duplicados Y reindexar para Vue
-            $habilitaciones = $p->supervisa
-                ->unique('id_habilitacion')
-                ->values() // <<<<<<<< IMPORTANTE
-                ->map(function ($s) {
-                    return [
-                        'rut_profesor'     => $s->profesor->rut_profesor,
-                        'nombre_profesor'  => $s->profesor->nombre_profesor,
-                        'rut_alumno'       => $s->habilitacion->alumno->rut_alumno,
-                        'nombre_alumno'    => $s->habilitacion->alumno->nombre_alumno,
-                    ];
-                });
+        $habilitaciones = $p->supervisa
+            ->unique('id_habilitacion')
+            ->values()
+            ->map(function ($s) {
 
-            return [
-                'rut_profesor'    => $p->rut_profesor,
-                'nombre_profesor' => $p->nombre_profesor,
-                'habilitaciones'  => $habilitaciones
-            ];
-        })->values();
+                $semestreCompleto = $s->habilitacion->semestre_inicio_anho 
+                                    . '-' 
+                                    . $s->habilitacion->semestre_inicio;
 
-        return inertia('Habilitacion/ListadoProfesor', [
-            'profesores' => $profesores
-        ]);
-    }
+                return [
+                    'rut_profesor'     => $s->profesor->rut_profesor,
+                    'nombre_profesor'  => $s->profesor->nombre_profesor,
+                    'rut_alumno'       => $s->habilitacion->alumno->rut_alumno,
+                    'nombre_alumno'    => $s->habilitacion->alumno->nombre_alumno,
+                    'semestre_inicio'  => $semestreCompleto, // ← FALTABA
+                ];
+            });
+
+        return [
+            'rut_profesor'    => $p->rut_profesor,
+            'nombre_profesor' => $p->nombre_profesor,
+            'habilitaciones'  => $habilitaciones
+        ];
+    })->values();
+
+    return inertia('Habilitacion/ListadoProfesor', [
+        'profesores' => $profesores
+    ]);
+}
+
 }

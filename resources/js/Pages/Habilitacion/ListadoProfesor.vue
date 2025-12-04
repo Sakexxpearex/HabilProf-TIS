@@ -6,14 +6,17 @@ const props = defineProps({
   mensaje: String,
 });
 
-// Aplana todas las habilitaciones en una sola tabla
+// Aplanar todos los registros en una sola tabla
 const filas = computed(() => {
+  if (!props.profesores) return [];
+
   return props.profesores.flatMap((p) =>
-    p.habilitaciones.map((h) => ({
+    (p.habilitaciones || []).map((h) => ({
       rut_profesor: p.rut_profesor,
       nombre_profesor: p.nombre_profesor,
       rut_alumno: h.rut_alumno,
       nombre_alumno: h.nombre_alumno,
+      semestre_inicio: h.semestre_inicio, // ← FALTABA
     }))
   );
 });
@@ -21,7 +24,7 @@ const filas = computed(() => {
 
 <template>
   <div class="p-6">
-    <h1 class="text-2xl font-bold mb-4">Listado Histórico por Profesor</h1>
+    <h1 class="text-2xl font-bold mb-4">Histórico por Profesor</h1>
 
     <table
       v-if="filas.length > 0"
@@ -33,6 +36,7 @@ const filas = computed(() => {
           <th class="border px-2 py-1">Nombre Profesor</th>
           <th class="border px-2 py-1">RUT Alumno</th>
           <th class="border px-2 py-1">Nombre Alumno</th>
+          <th class="border px-2 py-1">Semestre</th> <!-- NUEVO -->
         </tr>
       </thead>
 
@@ -42,10 +46,13 @@ const filas = computed(() => {
           <td class="border px-2 py-1">{{ f.nombre_profesor }}</td>
           <td class="border px-2 py-1">{{ f.rut_alumno }}</td>
           <td class="border px-2 py-1">{{ f.nombre_alumno }}</td>
+          <td class="border px-2 py-1">{{ f.semestre_inicio }}</td> <!-- NUEVO -->
         </tr>
       </tbody>
     </table>
 
-    <p v-else class="text-gray-500 mt-4">No hay registros disponibles.</p>
+    <p v-else class="text-gray-500 mt-4">
+      No hay registros disponibles.
+    </p>
   </div>
 </template>
